@@ -7,35 +7,26 @@
 % Target data and reference record are inputted as time series. 
 
 %% Input
-% TS_tg : target time series for all location as 1-by-N cell array where each
-%         of the N cell stores the time series of a location
-%   cf  : unit conversion factor for target data;
-% GI_tg : geographic information of the target data as an N-by-3 table with the
-%         column name in order as "ID", "X" and "Y" where "ID" is the name of
-%         the N target locations, "X" & "Y" are the x and y coordinates of the
-%         locations;
-% TI_tg : time information of the target data as 1-by-N cell array where each
-%         of the N cells stores the date number of the time series;
-% Trs_tg: time resolution of target data in number of hour;
-% Tcv_tg: time convention of target data (can be "f", "b" or "c" representing
-%         a forward, backward and centered time convention;
-% TS_rf : reference time series as 1-by-N cell array where each of the N cell
-%         stores the time series of a location of interest;
-% GI_rf : geographic information of the reference data as an N-by-4 table with
-%         the column name in order as "ID", "X", "Y" and "Group" where "ID" is
-%         the name of the N target locations, "X" & "Y" are the x and y coordinates
-%         of the locations and "Group" is the grouping of the locations;
-% TI_rf : time information of the reference data as 1-by-N cell array where each
-%         of the N cells stores the date number of the time series
-% Trs_rf: time resolution of reference data in number of hour;
-% Tcv_rf: time convention of reference data (see Tcv_tg);
-%  thr  : a threshold value used to calculate the contigency statistics (set
-%         it to "[]" if no need to output the contigency statistics);
-%   md  : max distance between the matched target and reference location pair;
-%  outn : variable name for the target time series outputted (set it to "[]"
-%         if no need to output the time series;
-%  opth : output path to store the matched time series with time information
-%         (set it to "[]" if no need to output the time series).
+% Stg/Srf: target/reference time series for all location as 1-by-N cell array
+%          where each of the N cell stores the time series of a location;
+% Gtg/Grf: geographic information of the target/reference time series as an N-by-3
+%          table with the  column name in order as "ID", "X" and "Y" where "ID"
+%          is the name of the N target locations, "X" & "Y" are the x and y coordinates
+%          of the locations;
+% Ttg/Trf: time information of the target/reference time series as 1-by-N cell
+%          array where each of the N cells stores the date number of the time
+%          series;
+% Rtg/Rrf: time resolution of target/reference time series in number of hour;
+% Ctg/Crf: time convention of target/reference time series (can be "f", "b" or
+%          "c" representing a forward, backward and centered time convention);
+%   cf   : factor used to convert the unit of target data to reference;
+%   md   : max distance between the matched target and reference location pair;
+%   thr  : a threshold value used to calculate the contigency statistics (set
+%          it to "[]" if no need to output the contigency statistics);
+%  outn  : variable name for the target time series outputted (set it to "[]"
+%          if no need to output the time series;
+%  opth  : output path to store the matched time series with time information
+%          (set it to "[]" if no need to output the time series).
 
 %% Output
 % STs: statistics of target and reference time series including 1)sample size
@@ -45,94 +36,94 @@
 % EMs: error metrics derived between target and reference time series including
 %      1)root mean square error, 2)centered root mean square error, 3)correlation
 %      coefficient, 4)Nash-Sutcliffe efficiency and 5)Kling-Gupta efficiency;
-% CSs: contigency statistics given threshold value "thr" including number of
-%      1)hit, 2)missing, 3)false alarm, and 4)correct negative.
+% CSs: contigency statistics given threshold value "thr" including rate of 1)hit,
+%      2)missing, 3)false alarm, and 4)correct negative.
 
-function [STs,EMs,CSs]=comp_TS(TS_tg,cf,GI_tg,TI_tg,Trs_tg,Tcv_tg,TS_rf,GI_rf,TI_rf,Trs_rf,Tcv_rf,thr,md,outn,opth)
-Trs_rf=Trs_rf/24; % Convert from hour to day
-Trs_tg=Trs_tg/24; % Convert from hour to day
+function [STs,EMs,CSs]=comp_TS(Stg,Gtg,Ttg,Rtg,Ctg,Srf,Grf,Trf,Rrf,Crf,cf,md,thr,outn,opth)
+Rrf=Rrf/24; % Convert from hour to day
+Rtg=Rtg/24;
 
 %% Target inputted as time series
-if strcmp(Tcv_tg,'f') % Make the target record to the centered time convention
-  TI_tg=cellfun(@(x) x-Trs_tg/2,TI_tg,'UniformOutput',false);
-elseif strcmp(Tcv_tg,'b')
-  TI_tg=cellfun(@(x) x+Trs_tg/2,TI_tg,'UniformOutput',false);
+if strcmp(Ctg,'f') % Make the target record to the centered time convention
+  Ttg=cellfun(@(x) x-Rtg/2,Ttg,'UniformOutput',false);
+elseif strcmp(Ctg,'b')
+  Ttg=cellfun(@(x) x+Rtg/2,Ttg,'UniformOutput',false);
 end
 
 % Match target time series to the closest stations
-[id,d]=knnsearch([GI_tg.X GI_tg.Y],[GI_rf.X GI_rf.Y],'K',1);
+[id,d]=knnsearch([Gtg.X Gtg.Y],[Grf.X Grf.Y],'K',1);
 id(d>md)=[];
-TS_tg=TS_tg(id);
-TI_tg=TI_tg(id);
+Stg=Stg(id);
+Ttg=Ttg(id);
 
 clear id d md GI_tg Trs_tg Tcv_tg t
 
 %% Error metrics and statistics
-Gid=unique(GI_rf.Group); % Groupping of records
+Gid=unique(Grf.Group); % Groupping of records
 STs=cell(length(Gid),1);
 CSs=cell(length(Gid),1);
 EMs=cell(length(Gid),1);
 
 for g=1:length(Gid)
-  GIg_rf=GI_rf(GI_rf.Group==g-1,:);
-  TIg_rf=TI_rf(GI_rf.Group==g-1);
-  TSg_rf=TS_rf(GI_rf.Group==g-1);
+  Grf_g=Grf(Grf.Group==g-1,:);
+  Trf_g=Trf(Grf.Group==g-1);
+  Srf_g=Srf(Grf.Group==g-1);
 
-  TIg_tg=TI_tg(GI_rf.Group==g-1);
-  TSg_tg=TS_tg(GI_rf.Group==g-1);
+  Ttg_g=Ttg(Grf.Group==g-1);
+  Stg_g=Stg(Grf.Group==g-1);
 
-  STs{g}=nan(size(GIg_rf,1)+1,5);
-  CSs{g}=nan(size(GIg_rf,1)+1,5);
-  EMs{g}=nan(size(GIg_rf,1)+1,5);
+  STs{g}=nan(size(Grf_g,1)+1,5);
+  CSs{g}=nan(size(Grf_g,1)+1,5);
+  EMs{g}=nan(size(Grf_g,1)+1,5);
 
   Ttg=[];
   Trf=[];
-  for s=1:size(GIg_rf,1)
+  for s=1:size(Grf_g,1)
 
 % Aggregate target time series to match the time resolution of station records
-    TSm_tg=nan(length(TIg_rf{s}),1);
-    for t=1:length(TIg_rf{s})
-      if strcmp(Tcv_rf,'f') % Forward
-        TSm_tg(t)=nanmean(TSg_tg{s}(TIg_tg{s}>=TIg_rf{s}(t)-Trs_rf & TIg_tg{s}<TIg_rf{s}(t)));
-      elseif strcmp(Tcv_rf,'c') % Centered
-        TSm_tg(t)=nanmean(TSg_tg{s}(TIg_tg{s}>=TIg_rf{s}(t)-Trs_rf/2 & TIg_tg{s}<TIg_rf{s}(t)+Trs_rf/2));
-      elseif strcmp(Tcv_rf,'b') % Backward
-        TSm_tg(t)=nanmean(TSg_tg{s}(TIg_tg{s}>=TIg_rf{s}(t) & TIg_tg{s}<TIg_rf{s}(t)+Trs_rf));
+    Stg_m=nan(length(Trf_g{s}),1);
+    for t=1:length(Trf_g{s})
+      if strcmp(Crf,'f') % Forward
+        Stg_m(t)=nanmean(Stg_g{s}(Ttg_g{s}>=Trf_g{s}(t)-Rrf & Ttg_g{s}<Trf_g{s}(t)));
+      elseif strcmp(Crf,'c') % Centered
+        Stg_m(t)=nanmean(Stg_g{s}(Ttg_g{s}>=Trf_g{s}(t)-Rrf/2 & Ttg_g{s}<Trf_g{s}(t)+Rrf/2));
+      elseif strcmp(Crf,'b') % Backward
+        Stg_m(t)=nanmean(Stg_g{s}(Ttg_g{s}>=Trf_g{s}(t) & Ttg_g{s}<Trf_g{s}(t)+Rrf));
       end
     end
-    TSm_rf=TSg_rf{s};
-    k=~isnan(TSm_tg) & ~isnan(TSm_rf);
-    TSm_tg=cf*TSm_tg(k); % Convert target time series unit to reference's
-    TSm_rf=TSm_rf(k);
-    TIm_tg=TIg_rf{s}(k,1); % Matched Time Info of target
-    Ttg=[Ttg;TSm_tg]; % The groupped records
-    Trf=[Trf;TSm_rf];
+    Srf_m=Srf_g{s};
+    k=~isnan(Stg_m) & ~isnan(Srf_m);
+    Stg_m=cf*Stg_m(k); % Convert target time series unit to reference's
+    Srf_m=Srf_m(k);
+    Ttg_m=Trf_g{s}(k,1); % Matched Time Info of target
+    Ttg=[Ttg;Stg_m]; % The groupped records
+    Trf=[Trf;Srf_m];
 
     if ~isempty(opth) % Output the target time series
-      save([opth outn '_' GIg_rf.ID{s}],'TIm_tg','TSm_tg');
+      save([opth outn '_' Grf_g.ID{s}],'Ttg_m','Stg_m');
     end
 
 % Statistics and Error metrics of each station
     N=length(find(k)); % Sample size
-    if N>=20/Trs_rf
-      m_tg=mean(TSm_tg); % Mean of target time series
-      m_rf=mean(TSm_rf); % Mean of reference time series
-      v_tg=var(TSm_tg,1); % Variance of target time series
-      v_rf=var(TSm_rf,1); % Variance of reference time series
+    if N>=20/Rrf
+      m_tg=mean(Stg_m); % Mean of target time series
+      m_rf=mean(Srf_m); % Mean of reference time series
+      v_tg=var(Stg_m,1); % Variance of target time series
+      v_rf=var(Srf_m,1); % Variance of reference time series
       STs{g}(s,:)=[N m_tg m_rf v_tg v_rf];
 
-      RMS=sqrt(mean((TSm_tg-TSm_rf).^2)); % Root mean square error
-      CRMS=std(TSm_tg-TSm_rf,1); % Centered root mean square error
-      CC=corr(TSm_tg,TSm_rf); % Correlation coefficient
-      NSE=1-sum((TSm_tg-TSm_rf).^2)/(N*v_rf); % Nash Sutcliff efficiency
+      RMS=sqrt(mean((Stg_m-Srf_m).^2)); % Root mean square error
+      CRMS=std(Stg_m-Srf_m,1); % Centered root mean square error
+      CC=corr(Stg_m,Srf_m); % Correlation coefficient
+      NSE=1-sum((Stg_m-Srf_m).^2)/(N*v_rf); % Nash Sutcliff efficiency
       KGE=1-sqrt((CC-1)^2+(m_tg/m_rf-1)^2+(sqrt(v_tg)/sqrt(v_rf)*m_rf/m_tg-1)^2); % KGE
       EMs{g}(s,:)=[RMS CRMS CC NSE KGE];
 
       if ~isempty(thr) % Contigency statistics
-        nh=length(find(TSm_tg>thr & TSm_rf>thr));
-        nm=length(find(TSm_tg<=thr & TSm_rf>thr));
-        nf=length(find(TSm_tg>thr & TSm_rf<=thr));
-        nn=length(find(TSm_tg<=thr & TSm_rf<=thr));
+        nh=length(find(Stg_m>thr & Srf_m>thr));
+        nm=length(find(Stg_m<=thr & Srf_m>thr));
+        nf=length(find(Stg_m>thr & Srf_m<=thr));
+        nn=length(find(Stg_m<=thr & Srf_m<=thr));
         CSs{g}(s,:)=[nh nm nf nn]; 
       end
     end
@@ -140,7 +131,7 @@ for g=1:length(Gid)
 
 % Statistics and Error metrics of group
   N=length(Ttg); % Sample size
-  if N>=20*size(GIg_rf,1)/Trs_rf && size(GIg_rf,1)>0
+  if N>=20*size(Grf_g,1)/Rrf && size(Grf_g,1)>0
     m_tg=mean(Ttg); % Mean of target time series
     m_rf=mean(Trf); % Mean of reference time series
     v_tg=var(Ttg,1); % Variance of target time series
@@ -163,7 +154,7 @@ for g=1:length(Gid)
     end
   end
 
-  RN=[GIg_rf.ID;mat2cell(['All_G' num2str(g-1,'%0i')],1,6)];
+  RN=[Grf_g.ID;mat2cell(['All_G' num2str(g-1,'%0i')],1,6)];
   RN=RN(~isnan(STs{g}(:,1)));
   STs{g}(isnan(STs{g}(:,1)),:)=[];
   CSs{g}(isnan(CSs{g}(:,1)),:)=[];
