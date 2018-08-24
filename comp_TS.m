@@ -24,7 +24,7 @@
 %   thr  : a threshold value used to calculate the contigency statistics (set
 %          it to "[]" if no need to output the contigency statistics);
 %  outn  : variable name for the target time series outputted (set it to "[]"
-%          if no need to output the time series;
+%          if no need to output the time series);
 %  opth  : output path to store the matched time series with time information
 %          (set it to "[]" if no need to output the time series).
 
@@ -56,7 +56,7 @@ id(d>md)=[];
 Stg=Stg(id);
 Ttg=Ttg(id);
 
-clear id d md GI_tg Trs_tg Tcv_tg t
+clear id d md Gtg Rtg Ctg t
 
 %% Error metrics and statistics
 Gid=unique(Grf.Group); % Groupping of records
@@ -73,11 +73,11 @@ for g=1:length(Gid)
   Stg_g=Stg(Grf.Group==g-1);
 
   STs{g}=nan(size(Grf_g,1)+1,5);
-  CSs{g}=nan(size(Grf_g,1)+1,5);
+  CSs{g}=nan(size(Grf_g,1)+1,4);
   EMs{g}=nan(size(Grf_g,1)+1,5);
 
-  Ttg=[];
-  Trf=[];
+  Stg_a=[];
+  Srf_a=[];
   for s=1:size(Grf_g,1)
 
 % Aggregate target time series to match the time resolution of station records
@@ -96,8 +96,8 @@ for g=1:length(Gid)
     Stg_m=cf*Stg_m(k); % Convert target time series unit to reference's
     Srf_m=Srf_m(k);
     Ttg_m=Trf_g{s}(k,1); % Matched Time Info of target
-    Ttg=[Ttg;Stg_m]; % The groupped records
-    Trf=[Trf;Srf_m];
+    Stg_a=[Stg_a;Stg_m]; % The groupped records
+    Srf_a=[Srf_a;Srf_m];
 
     if ~isempty(opth) % Output the target time series
       save([opth outn '_' Grf_g.ID{s}],'Ttg_m','Stg_m');
@@ -120,47 +120,49 @@ for g=1:length(Gid)
       EMs{g}(s,:)=[RMS CRMS CC NSE KGE];
 
       if ~isempty(thr) % Contigency statistics
-        nh=length(find(Stg_m>thr & Srf_m>thr));
-        nm=length(find(Stg_m<=thr & Srf_m>thr));
-        nf=length(find(Stg_m>thr & Srf_m<=thr));
-        nn=length(find(Stg_m<=thr & Srf_m<=thr));
-        CSs{g}(s,:)=[nh nm nf nn]; 
+        r_h=length(find(Stg_m>thr & Srf_m>thr))/N;
+        r_m=length(find(Stg_m<=thr & Srf_m>thr))/N;
+        r_f=length(find(Stg_m>thr & Srf_m<=thr))/N;
+        r_n=length(find(Stg_m<=thr & Srf_m<=thr))/N;
+        CSs{g}(s,:)=[r_h r_m r_f r_n]; 
       end
     end
   end
 
 % Statistics and Error metrics of group
-  N=length(Ttg); % Sample size
+  N=length(Stg_a); % Sample size
   if N>=20*size(Grf_g,1)/Rrf && size(Grf_g,1)>0
-    m_tg=mean(Ttg); % Mean of target time series
-    m_rf=mean(Trf); % Mean of reference time series
-    v_tg=var(Ttg,1); % Variance of target time series
-    v_rf=var(Trf,1); % Variance of reference time series
+    m_tg=mean(Stg_a); % Mean of target time series
+    m_rf=mean(Srf_a); % Mean of reference time series
+    v_tg=var(Stg_a,1); % Variance of target time series
+    v_rf=var(Srf_a,1); % Variance of reference time series
     STs{g}(s+1,:)=[N m_tg m_rf v_tg v_rf];
 
-    RMS=sqrt(mean((Ttg-Trf).^2)); % Root mean square error
-    CRMS=std(Ttg-Trf,1); % Centered root mean square error
-    CC=corr(Ttg,Trf); % Correlation coefficient
-    NSE=1-sum((Ttg-Trf).^2)/(N*v_rf); % Nash Sutcliff efficiency
+    RMS=sqrt(mean((Stg_a-Srf_a).^2)); % Root mean square error
+    CRMS=std(Stg_a-Srf_a,1); % Centered root mean square error
+    CC=corr(Stg_a,Srf_a); % Correlation coefficient
+    NSE=1-sum((Stg_a-Srf_a).^2)/(N*v_rf); % Nash Sutcliff efficiency
     KGE=1-sqrt((CC-1)^2+(m_tg/m_rf-1)^2+(sqrt(v_tg)/sqrt(v_rf)*m_rf/m_tg-1)^2); % KGE
     EMs{g}(s+1,:)=[RMS CRMS CC NSE KGE];
 
     if ~isempty(thr) % Contigency statistics
-      nh=length(find(Ttg>thr & Trf>thr));
-      nm=length(find(Ttg<=thr & Trf>thr));
-      nf=length(find(Ttg>thr & Trf<=thr));
-      nn=length(find(Ttg<=thr & Trf<=thr));
-      CSs{g}(s+1,:)=[nh nm nf nn]; 
+      r_h=length(find(Stg_a>thr & Srf_a>thr))/N;
+      r_m=length(find(Stg_a<=thr & Srf_a>thr))/N;
+      r_f=length(find(Stg_a>thr & Srf_a<=thr))/N;
+      r_n=length(find(Stg_a<=thr & Srf_a<=thr))/N;
+      CSs{g}(s+1,:)=[r_h r_m r_f r_n]; 
     end
   end
 
   RN=[Grf_g.ID;mat2cell(['All_G' num2str(g-1,'%0i')],1,6)];
   RN=RN(~isnan(STs{g}(:,1)));
   STs{g}(isnan(STs{g}(:,1)),:)=[];
-  CSs{g}(isnan(CSs{g}(:,1)),:)=[];
-  EMs{g}(isnan(EMs{g}(:,1)),:)=[];
-
   STs{g}=table(STs{g}(:,1),STs{g}(:,2),STs{g}(:,3),STs{g}(:,4),STs{g}(:,5),'VariableNames',{'N','m_tg','m_rf','v_tg','v_rf'},'RowNames',RN);
+  EMs{g}(isnan(EMs{g}(:,1)),:)=[];
   EMs{g}=table(EMs{g}(:,1),EMs{g}(:,2),EMs{g}(:,3),EMs{g}(:,4),EMs{g}(:,5),'VariableNames',{'RMS','CRMS','CC','NSE','KGE'},'RowNames',RN);
+  if ~isempty(thr) % Contigency statistics
+    CSs{g}(isnan(CSs{g}(:,1)),:)=[];
+    CSs{g}=table(CSs{g}(:,1),CSs{g}(:,2),CSs{g}(:,3),CSs{g}(:,4),'VariableNames',{'r_h','r_m','r_f','r_n'},'RowNames',RN);
+  end
 end
 end

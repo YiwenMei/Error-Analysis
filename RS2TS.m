@@ -50,7 +50,7 @@ Y=reshape(Y,numel(Y),1);
 id(d>md)=[];
 Gtg=table(Grf.ID,X(id),Y(id),Grf.Group,'VariableNames',{'ID','X','Y','Group'});
 if ~isempty(opth) % Output the target time series
-  save([opth 'GI_px' outn],'GI_tg');
+  save([opth 'GI_px' outn],'Gtg');
 end
 
 % Read the target image data
@@ -72,8 +72,8 @@ for t=1:size(Ftg,1)
 
 % Extract time series of interested locations
   Stg1(t,:)=Z(id);
-  Stg1(Stg1==ndv)=NaN;
 end
+Stg1(Stg1==ndv)=NaN;
 
 % Output the target time series data with date number
 if ~isempty(opth)
