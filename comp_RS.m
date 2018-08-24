@@ -87,11 +87,11 @@ for t=1:size(Frf,1)
   N=nan(length(ytg),length(xtg),1);
   for ti=1:size(ftg,1)
     [~,~,fex]=fileparts(ftg(ti,:));
-    if strncmp(fex,'.tif',4) % compatable for .tif
+    if strncmp(fex,'.tif',4) % compatable for .tif & .tiff
       z_tg=double(imread(ftg(ti,:)));
-    elseif strncmp(fex,'.nc4',3) % compatable for .nc
+    elseif strncmp(fex,'.nc4',3) % compatable for .nc & .nc4
       z_tg=double(ncread(ftg(ti,:),Ntg));
-    elseif strncmp(fex,'.hdf',4) % compatable for .hdf5
+    elseif strncmp(fex,'.hdf',4) % compatable for .hdf & .hdf5
       z_tg=double(hdfread(ftg(ti,:),Ntg));
     elseif strcmp(fex,'.asc') || strcmp(fex,'.txt')
       z_tg=double(dlmread(ftg(ti,:),'',6,0));
@@ -185,7 +185,7 @@ dZa(k)=NaN;
 pZa(k)=NaN;
 RMS=sqrt(dZa2./Na); % Root mean square error
 CRMS=sqrt(dZa2./Na-(dZa./Na).^2); % Centered root mean square error
-CC=(pZa./Na-m_tg.*m_rf)/sqrt(v_rf.*v_tg); % Correlation coefficient
+CC=(pZa./Na-m_tg.*m_rf)./sqrt(v_rf.*v_tg); % Correlation coefficient
 NSE=1-dZa2./(Na.*v_rf); % Nash Sutcliff efficiency
 KGE=1-sqrt((CC-1).^2+(m_tg./m_rf-1).^2+(sqrt(v_tg)./sqrt(v_rf).*m_rf./m_tg-1).^2); % Kling-Gupta efficiency
 EMs.RS=cat(3,RMS,CRMS,CC,NSE,KGE);
