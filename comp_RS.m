@@ -33,27 +33,30 @@ elseif strcmp(Ctg,'b')
   Ttg=Ttg+Rtg/2;
 end
 
-% Target coordinate
+% Target/reference coordinate
 xtg=Gtg(1,1)+Gtg(1,3)/2:Gtg(1,3):Gtg(1,2)-Gtg(1,3)/2;
 ytg=Gtg(2,1)-Gtg(2,3)/2:-Gtg(2,3):Gtg(2,2)+Gtg(2,3)/2;
+
+xrf=Grf(1,1)+Grf(1,3)/2:Grf(1,3):Grf(1,2)-Grf(1,3)/2;
+yrf=Grf(2,1)-Grf(2,3)/2:-Grf(2,3):Grf(2,2)+Grf(2,3)/2;
 
 nx=Grf(1,3)/Gtg(1,3); % ratio used in resize image
 ny=Grf(2,3)/Gtg(2,3);
 
-Na=zeros(length(ytg)/ny,length(xtg)/nx);
-Za_tg=zeros(length(ytg)/ny,length(xtg)/nx);
-Za_rf=zeros(length(ytg)/ny,length(xtg)/nx);
-Za2_tg=zeros(length(ytg)/ny,length(xtg)/nx);
-Za2_rf=zeros(length(ytg)/ny,length(xtg)/nx);
+Na=zeros(length(yrf),length(xrf));
+Za_tg=zeros(length(yrf),length(xrf));
+Za_rf=zeros(length(yrf),length(xrf));
+Za2_tg=zeros(length(yrf),length(xrf));
+Za2_rf=zeros(length(yrf),length(xrf));
 
-Na_h=zeros(length(ytg)/ny,length(xtg)/nx);
-Na_m=zeros(length(ytg)/ny,length(xtg)/nx);
-Na_f=zeros(length(ytg)/ny,length(xtg)/nx);
-Na_n=zeros(length(ytg)/ny,length(xtg)/nx);
+Na_h=zeros(length(yrf),length(xrf));
+Na_m=zeros(length(yrf),length(xrf));
+Na_f=zeros(length(yrf),length(xrf));
+Na_n=zeros(length(yrf),length(xrf));
 
-pZa=zeros(length(ytg)/ny,length(xtg)/nx);
-dZa=zeros(length(ytg)/ny,length(xtg)/nx);
-dZa2=zeros(length(ytg)/ny,length(xtg)/nx);
+pZa=zeros(length(yrf),length(xrf));
+dZa=zeros(length(yrf),length(xrf));
+dZa2=zeros(length(yrf),length(xrf));
 
 for t=1:size(Frf,1)
 %% Reference image
@@ -104,13 +107,11 @@ for t=1:size(Frf,1)
     k=double(~isnan(z_tg));
     N=nansum(cat(3,N,k),3); % All NaN means 0
   end
-  Z_tg=Z_tg./N;
-  clear N k
-
 % Aggregate target image
-  Z_tg=cf*nanmean(Z_tg,3); % Convert to unit of reference
+  Z_tg=cf*Z_tg./N; % Convert to unit of reference
+  clear N k z_tg
   Z_tg(isnan(Z_tg))=Vtg;
-  Z_tg=resizeimg(Z_tg,Gtg(1,:),nx,Gtg(2,:),ny,thr,Vtg);
+  Z_tg=resizeimg(Z_tg,Gtg(1,:),Grf(1,:),Gtg(2,:),Grf(2,:),thr,Vtg);
   Z_tg(Z_tg==Vtg)=NaN;
 
 %% Error analysis
@@ -168,11 +169,11 @@ end
 k=Na>=20/Rrf;
 
 % Statistics
-Na(k)=NaN; % Sample size
-Za_rf(k)=NaN;
-Za_tg(k)=NaN;
-Za2_rf(k)=NaN;
-Za2_tg(k)=NaN;
+Na(~k)=NaN; % Sample size
+Za_rf(~k)=NaN;
+Za_tg(~k)=NaN;
+Za2_rf(~k)=NaN;
+Za2_tg(~k)=NaN;
 m_rf=Za_rf./Na; % Mean of reference time series
 m_tg=Za_tg./Na; % Mean of target time series
 v_rf=Za2_rf./Na-m_rf.^2; % Variance of reference time series
@@ -180,9 +181,9 @@ v_tg=Za2_tg./Na-m_tg.^2; % Variance of target time series
 STs.RS=cat(3,Na,m_tg,m_rf,v_rf,v_tg);
 
 % Error metrics
-dZa2(k)=NaN;
-dZa(k)=NaN;
-pZa(k)=NaN;
+dZa2(~k)=NaN;
+dZa(~k)=NaN;
+pZa(~k)=NaN;
 RMS=sqrt(dZa2./Na); % Root mean square error
 CRMS=sqrt(dZa2./Na-(dZa./Na).^2); % Centered root mean square error
 CC=(pZa./Na-m_tg.*m_rf)./sqrt(v_rf.*v_tg); % Correlation coefficient
@@ -192,10 +193,10 @@ EMs.RS=cat(3,RMS,CRMS,CC,NSE,KGE);
 
 % Contigency statistics
 if ~isempty(Z_thr)
-  Na_h(k)=NaN;
-  Na_m(k)=NaN;
-  Na_f(k)=NaN;
-  Na_n(k)=NaN;
+  Na_h(~k)=NaN;
+  Na_m(~k)=NaN;
+  Na_f(~k)=NaN;
+  Na_n(~k)=NaN;
   Na_h=Na_h./Na; % Hit rate
   Na_m=Na_m./Na; % Missing rate
   Na_f=Na_f./Na; % False alarm rate
