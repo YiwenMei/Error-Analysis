@@ -40,9 +40,6 @@ ytg=Gtg(2,1)-Gtg(2,3)/2:-Gtg(2,3):Gtg(2,2)+Gtg(2,3)/2;
 xrf=Grf(1,1)+Grf(1,3)/2:Grf(1,3):Grf(1,2)-Grf(1,3)/2;
 yrf=Grf(2,1)-Grf(2,3)/2:-Grf(2,3):Grf(2,2)+Grf(2,3)/2;
 
-nx=Grf(1,3)/Gtg(1,3); % ratio used in resize image
-ny=Grf(2,3)/Gtg(2,3);
-
 Na=zeros(length(yrf),length(xrf));
 Za_tg=zeros(length(yrf),length(xrf));
 Za_rf=zeros(length(yrf),length(xrf));
@@ -61,7 +58,7 @@ dZa2=zeros(length(yrf),length(xrf));
 for t=1:size(Frf,1)
 %% Reference image
 % Read the image
-  [~,~,fex]=fileparts(Frf(t,:));
+  [wpth,~,fex]=fileparts(Frf(t,:));
   if strncmp(fex,'.tif',4) % compatable for .tiff
     Z_rf=double(imread(Frf(t,:)));
   elseif strncmp(fex,'.nc4',3) % compatable for .nc
@@ -111,7 +108,7 @@ for t=1:size(Frf,1)
   Z_tg=cf*Z_tg./N; % Convert to unit of reference
   clear N k z_tg
   Z_tg(isnan(Z_tg))=Vtg;
-  Z_tg=resizeimg(Z_tg,Gtg(1,:),Grf(1,:),Gtg(2,:),Grf(2,:),thr,Vtg);
+  Z_tg=resizeimg(Z_tg,Gtg(1,:),Grf(1,:),Gtg(2,:),Grf(2,:),fullfile(wpth,'id.mat'),thr,Vtg);
   Z_tg(Z_tg==Vtg)=NaN;
 
 %% Error analysis
