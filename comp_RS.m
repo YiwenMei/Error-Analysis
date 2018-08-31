@@ -26,7 +26,6 @@
 function [STs,EMs,CSs]=comp_RS(Ftg,Ntg,Vtg,Gtg,Ttg,Rtg,Ctg,Frf,Nrf,Vrf,Grf,Trf,Rrf,Crf,cf,Z_thr,thr)
 Rrf=Rrf/24; % Convert from hour to day
 Rtg=Rtg/24;
-
 if strcmp(Ctg,'f') % Make the target record to the centered time convention
   Ttg=Ttg-Rtg/2;
 elseif strcmp(Ctg,'b')
@@ -36,7 +35,6 @@ end
 % Target/reference coordinate
 xtg=Gtg(1,1)+Gtg(1,3)/2:Gtg(1,3):Gtg(1,2)-Gtg(1,3)/2;
 ytg=Gtg(2,1)-Gtg(2,3)/2:-Gtg(2,3):Gtg(2,2)+Gtg(2,3)/2;
-
 xrf=Grf(1,1)+Grf(1,3)/2:Grf(1,3):Grf(1,2)-Grf(1,3)/2;
 yrf=Grf(2,1)-Grf(2,3)/2:-Grf(2,3):Grf(2,2)+Grf(2,3)/2;
 
@@ -45,12 +43,10 @@ Za_tg=zeros(length(yrf),length(xrf));
 Za_rf=zeros(length(yrf),length(xrf));
 Za2_tg=zeros(length(yrf),length(xrf));
 Za2_rf=zeros(length(yrf),length(xrf));
-
 Na_h=zeros(length(yrf),length(xrf));
 Na_m=zeros(length(yrf),length(xrf));
 Na_f=zeros(length(yrf),length(xrf));
 Na_n=zeros(length(yrf),length(xrf));
-
 pZa=zeros(length(yrf),length(xrf));
 dZa=zeros(length(yrf),length(xrf));
 dZa2=zeros(length(yrf),length(xrf));
@@ -151,7 +147,6 @@ for t=1:size(Frf,1)
   Za_tg=nansum(cat(3,Za_tg,Z_tg),3);
   Za2_rf=nansum(cat(3,Za2_rf,Z_rf.^2),3);
   Za2_tg=nansum(cat(3,Za2_tg,Z_tg.^2),3);
-
   pZa=nansum(cat(3,pZa,Z_rf.*Z_tg),3);
   dZa=nansum(cat(3,dZa,Z_tg-Z_rf),3);
   dZa2=nansum(cat(3,dZa2,(Z_tg-Z_rf).^2),3);
@@ -175,7 +170,7 @@ m_rf=Za_rf./Na; % Mean of reference time series
 m_tg=Za_tg./Na; % Mean of target time series
 v_rf=Za2_rf./Na-m_rf.^2; % Variance of reference time series
 v_tg=Za2_tg./Na-m_tg.^2; % Variance of target time series
-STs.RS=cat(3,Na,m_tg,m_rf,v_rf,v_tg);
+STs.RS=cat(3,Na,m_tg,m_rf,v_tg,v_rf);
 
 % Error metrics
 dZa2(~k)=NaN;
