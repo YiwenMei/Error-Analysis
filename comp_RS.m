@@ -21,7 +21,31 @@
 %  Z_thr : a threshold value used to calculate the contigency statistics (set
 %          it to "[]" if no need to output the contigency statistics);
 %   thr  : percentage of nodata value for a block where block with percent of
-%          nodata value greater than this will be assigned the nodata value;
+%          nodata value greater than this will be assigned the nodata value.
+
+%% Output
+% STs.TS: statistics of target and reference map of every time step;
+% STs.RS: statistics of target and reference time series of every pixel;
+% EMs.TS: error metrics derived between target and reference map of every time
+%         step;
+% EMs.RS: error metrics derived between target and reference time series of every
+%         pixel;
+% CSs.TS: contigency statistics given threshold value "thr" of target and reference
+%         map of every time step;
+% CSs.RS: contigency statistics given threshold value "thr" of target and reference
+%         time series of every pixel;
+
+%% Additional note
+% STs includes time series and maps of
+%  1)sample size of matched target and reference time series pair,
+%  2)mean of target time series,        3)mean of reference time series,
+%  4)variance of target time series and 5)variance of reference time series;
+% EMs includes time series and maps of
+%  1)root mean square error,  2)centered root mean square error,
+%  3)correlation coefficient, 4)Nash-Sutcliffe efficiency and
+%  5)Kling-Gupta efficiency;
+% CSs includes time series and maps of rate of
+%  1)hit, 2)missing, 3)false alarm, and 4)correct negative.
 
 function [STs,EMs,CSs]=comp_RS(Ftg,Ntg,Vtg,Gtg,Ttg,Rtg,Ctg,Frf,Nrf,Vrf,Grf,Trf,Rrf,Crf,cf,Z_thr,thr)
 Rrf=Rrf/24; % Convert from hour to day

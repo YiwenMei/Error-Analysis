@@ -10,7 +10,7 @@
 % Stg/Srf: target/reference time series for all location as 1-by-N cell array
 %          where each of the N cell stores the time series of a location;
 % Gtg/Grf: geographic information of the target/reference time series as an N-by-3
-%          table with the  column name in order as "ID", "X" and "Y" where "ID"
+%          table with the column name in order as "ID", "X" and "Y" where "ID"
 %          is the name of the N target locations, "X" & "Y" are the x and y coordinates
 %          of the locations;
 % Ttg/Trf: time information of the target/reference time series as 1-by-N cell
@@ -21,7 +21,8 @@
 %          "c" representing a forward, backward and centered time convention);
 %   cf   : factor used to convert the unit of target data to reference;
 %   md   : max distance between the matched target and reference location pair;
-%   thr  : a threshold value used to calculate the contigency statistics (set
+%   Thr  : thresholds used to calculate the contigency statistics for different
+%          groups (set
 %          it to "[]" if no need to output the contigency statistics);
 %  outn  : variable name for the target time series outputted (set it to "[]"
 %          if no need to output the time series);
@@ -29,17 +30,22 @@
 %          (set it to "[]" if no need to output the time series).
 
 %% Output
-% STs: statistics of target and reference time series including 1)sample size
-%      of matched target and reference time series pair, 2)mean of target time
-%      series, 3)mean of reference time series, 4)variance of target time series
-%      and 5)variance of reference time series;
-% EMs: error metrics derived between target and reference time series including
-%      1)root mean square error, 2)centered root mean square error, 3)correlation
-%      coefficient, 4)Nash-Sutcliffe efficiency and 5)Kling-Gupta efficiency;
-% CSs: contigency statistics given threshold value "thr" including rate of 1)hit,
-%      2)missing, 3)false alarm, and 4)correct negative.
+% STs: statistics of target and reference time series;
+% EMs: error metrics derived between target and reference time series;
+% CSs: contigency statistics given threshold value "thr".
 
-function [STs,EMs,CSs]=comp_TS(Stg,Gtg,Ttg,Rtg,Ctg,Srf,Grf,Trf,Rrf,Crf,cf,md,thr,outn,opth)
+%% Additional note
+% STs includes
+%  1)sample size of matched target and reference time series pair,
+%  2)mean of target time series,        3)mean of reference time series,
+%  4)variance of target time series and 5)variance of reference time series;
+% EMs includes
+%  1)root mean square error,  2)centered root mean square error,
+%  3)correlation coefficient, 4)Nash-Sutcliffe efficiency and
+%  5)Kling-Gupta efficiency;
+% CSs includes rate of 1)hit, 2)missing, 3)false alarm, and 4)correct negative.
+
+function [STs,EMs,CSs]=comp_TS(Stg,Gtg,Ttg,Rtg,Ctg,Srf,Grf,Trf,Rrf,Crf,cf,md,Thr,outn,opth)
 Rrf=Rrf/24; % Convert from hour to day
 Rtg=Rtg/24;
 
@@ -119,11 +125,11 @@ for g=1:length(Gid)
       KGE=1-sqrt((CC-1)^2+(m_tg/m_rf-1)^2+(sqrt(v_tg)/sqrt(v_rf)*m_rf/m_tg-1)^2); % KGE
       EMs{g}(s,:)=[RMS CRMS CC NSE KGE];
 
-      if ~isempty(thr) % Contigency statistics
-        r_h=length(find(Stg_m>thr & Srf_m>thr))/N;
-        r_m=length(find(Stg_m<=thr & Srf_m>thr))/N;
-        r_f=length(find(Stg_m>thr & Srf_m<=thr))/N;
-        r_n=length(find(Stg_m<=thr & Srf_m<=thr))/N;
+      if ~isempty(Thr) % Contigency statistics
+        r_h=length(find(Stg_m>Thr(g) & Srf_m>Thr(g)))/N;
+        r_m=length(find(Stg_m<=Thr(g) & Srf_m>Thr(g)))/N;
+        r_f=length(find(Stg_m>Thr(g) & Srf_m<=Thr(g)))/N;
+        r_n=length(find(Stg_m<=Thr(g) & Srf_m<=Thr(g)))/N;
         CSs{g}(s,:)=[r_h r_m r_f r_n]; 
       end
     end
@@ -145,11 +151,11 @@ for g=1:length(Gid)
     KGE=1-sqrt((CC-1)^2+(m_tg/m_rf-1)^2+(sqrt(v_tg)/sqrt(v_rf)*m_rf/m_tg-1)^2); % KGE
     EMs{g}(s+1,:)=[RMS CRMS CC NSE KGE];
 
-    if ~isempty(thr) % Contigency statistics
-      r_h=length(find(Stg_a>thr & Srf_a>thr))/N;
-      r_m=length(find(Stg_a<=thr & Srf_a>thr))/N;
-      r_f=length(find(Stg_a>thr & Srf_a<=thr))/N;
-      r_n=length(find(Stg_a<=thr & Srf_a<=thr))/N;
+    if ~isempty(Thr) % Contigency statistics
+      r_h=length(find(Stg_a>Thr(g) & Srf_a>Thr(g)))/N;
+      r_m=length(find(Stg_a<=Thr(g) & Srf_a>Thr(g)))/N;
+      r_f=length(find(Stg_a>Thr(g) & Srf_a<=Thr(g)))/N;
+      r_n=length(find(Stg_a<=Thr(g) & Srf_a<=Thr(g)))/N;
       CSs{g}(s+1,:)=[r_h r_m r_f r_n]; 
     end
   end
@@ -160,7 +166,7 @@ for g=1:length(Gid)
   STs{g}=table(STs{g}(:,1),STs{g}(:,2),STs{g}(:,3),STs{g}(:,4),STs{g}(:,5),'VariableNames',{'N','m_tg','m_rf','v_tg','v_rf'},'RowNames',RN);
   EMs{g}(isnan(EMs{g}(:,1)),:)=[];
   EMs{g}=table(EMs{g}(:,1),EMs{g}(:,2),EMs{g}(:,3),EMs{g}(:,4),EMs{g}(:,5),'VariableNames',{'RMS','CRMS','CC','NSE','KGE'},'RowNames',RN);
-  if ~isempty(thr) % Contigency statistics
+  if ~isempty(Thr) % Contigency statistics
     CSs{g}(isnan(CSs{g}(:,1)),:)=[];
     CSs{g}=table(CSs{g}(:,1),CSs{g}(:,2),CSs{g}(:,3),CSs{g}(:,4),'VariableNames',{'r_h','r_m','r_f','r_n'},'RowNames',RN);
   end
