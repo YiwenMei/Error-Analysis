@@ -71,20 +71,8 @@ end
 
 % Read the target image data
 Stg1=nan(size(Ftg,1),length(id));
-for t=1:size(Ftg,1)
-  [~,~,fex]=fileparts(Ftg(t,:));
-  if strncmp(fex,'.tif',4) % compatable for .tiff
-    Z=reshape(double(imread(Ftg(t,:))),1,numel(X));
-  elseif strncmp(fex,'.nc4',3) % compatable for .nc
-    Z=reshape(double(ncread(Ftg(t,:),Ntg)),1,numel(X));
-  elseif strncmp(fex,'.hdf',4) % compatable for .hdf5
-    Z=reshape(double(hdfread(Ftg(t,:),Ntg)),1,numel(X));
-  elseif strcmp(fex,'.asc') || strcmp(fex,'.txt')
-    Z=reshape(double(dlmread(Ftg(t,:),'',6,0)),1,numel(X));
-  else
-    load(Ftg(t,:),Ntg);
-    Z=reshape(Ntg,1,numel(X));
-  end
+parfor t=1:size(Ftg,1)
+  Z=read2Dvar(Ftg(t,:),Ntg,ndv);
 
 % Extract time series of interested locations
   Stg1(t,:)=Z(id);

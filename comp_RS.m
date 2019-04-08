@@ -1,6 +1,6 @@
 % Yiwen Mei (ymei2@gmu.edu)
 % CEIE, George Mason University
-% Last update: 08/20/2018
+% Last update: 02/12/2019
 
 %% Functionality
 % This code performs error analysis between target and reference data. Target
@@ -24,15 +24,15 @@
 %          nodata value greater than this will be assigned the nodata value.
 
 %% Output
-% STs.TS: statistics of target and reference map of every time step;
-% STs.RS: statistics of target and reference time series of every pixel;
-% EMs.TS: error metrics derived between target and reference map of every time
+% TS.STs: statistics of target and reference map of every time step;
+% RS.STs: statistics of target and reference time series of every pixel;
+% TS.EMs: error metrics derived between target and reference map of every time
 %         step;
-% EMs.RS: error metrics derived between target and reference time series of every
+% RS.EMs: error metrics derived between target and reference time series of every
 %         pixel;
-% CSs.TS: contigency statistics given threshold value "thr" of target and reference
+% TS.CSs: contigency statistics given threshold value "thr" of target and reference
 %         map of every time step;
-% CSs.RS: contigency statistics given threshold value "thr" of target and reference
+% RS.CSs: contigency statistics given threshold value "thr" of target and reference
 %         time series of every pixel;
 
 %% Additional note
@@ -47,7 +47,7 @@
 % CSs includes time series and maps of rate of
 %  1)hit, 2)missing, 3)false alarm, and 4)correct negative.
 
-function [STs,EMs,CSs]=comp_RS(Ftg,Ntg,Vtg,Gtg,Ttg,Rtg,Ctg,Frf,Nrf,Vrf,Grf,Trf,Rrf,Crf,cf,Z_thr,thr)
+function [TS,RS]=comp_RS(Ftg,Ntg,Vtg,Gtg,Ttg,Rtg,Ctg,Frf,Nrf,Vrf,Grf,Trf,Rrf,Crf,cf,Z_thr,thr,wkpth)
 Rrf=Rrf/24; % Convert from hour to day
 Rtg=Rtg/24;
 if strcmp(Ctg,'f') % Make the target record to the centered time convention
@@ -75,23 +75,13 @@ pZa=zeros(length(yrf),length(xrf));
 dZa=zeros(length(yrf),length(xrf));
 dZa2=zeros(length(yrf),length(xrf));
 
+STs=nan(size(Frf,1),5);
+EMs=nan(size(Frf,1),5);
+CSs=nan(size(Frf,1),4);
 for t=1:size(Frf,1)
 %% Reference image
 % Read the image
-  [wpth,~,fex]=fileparts(Frf(t,:));
-  if strncmp(fex,'.tif',4) % compatable for .tiff
-    Z_rf=double(imread(Frf(t,:)));
-  elseif strncmp(fex,'.nc4',3) % compatable for .nc
-    Z_rf=double(ncread(Frf(t,:),Nrf));
-  elseif strncmp(fex,'.hdf',4) % compatable for .hdf5
-    Z_rf=double(hdfread(Frf(t,:),Nrf));
-  elseif strcmp(fex,'.asc') || strcmp(fex,'.txt')
-    Z_rf=double(dlmread(Frf(t,:),'',6,0));
-  else
-    load(Frf(t,:),Nrf);
-    Z_rf=Nrf;
-  end
-  Z_rf(Z_rf==Vrf)=NaN;
+  Z_rf=read2Dvar(Frf(t,:),Nrf,Vrf);
 
 %% Target image
   if strcmp(Crf,'f') % Forward
@@ -106,59 +96,31 @@ for t=1:size(Frf,1)
   Z_tg=nan(length(ytg),length(xtg),1);
   N=nan(length(ytg),length(xtg),1);
   for ti=1:size(ftg,1)
-    [~,~,fex]=fileparts(ftg(ti,:));
-    if strncmp(fex,'.tif',4) % compatable for .tif & .tiff
-      z_tg=double(imread(ftg(ti,:)));
-    elseif strncmp(fex,'.nc4',3) % compatable for .nc & .nc4
-      z_tg=double(ncread(ftg(ti,:),Ntg));
-    elseif strncmp(fex,'.hdf',4) % compatable for .hdf & .hdf5
-      z_tg=double(hdfread(ftg(ti,:),Ntg));
-    elseif strcmp(fex,'.asc') || strcmp(fex,'.txt')
-      z_tg=double(dlmread(ftg(ti,:),'',6,0));
-    else
-      load(Ftg(t,:),Ntg);
-      z_tg=Ntg;
-    end
-    z_tg(z_tg==Vtg)=NaN;
+    z_tg=read2Dvar(ftg(ti,:),Ntg,Vtg);
+
     Z_tg=nansum(cat(3,Z_tg,z_tg),3);
     k=double(~isnan(z_tg));
     N=nansum(cat(3,N,k),3); % All NaN means 0
   end
 % Aggregate target image
   Z_tg=cf*Z_tg./N; % Convert to unit of reference
-  clear N k z_tg
   Z_tg(isnan(Z_tg))=Vtg;
-  Z_tg=resizeimg(Z_tg,Gtg(1,:),Grf(1,:),Gtg(2,:),Grf(2,:),fullfile(wpth,'id.mat'),thr,Vtg);
+  idn=fullfile(wkpth,sprintf('id_rs%d_%d.mat',Gtg(1,3),Grf(1,3)));
+  Z_tg=resizeimg(Z_tg,Vtg,Grf(1,:),Grf(2,:),idn,thr,Gtg(1,:),Gtg(2,:));
   Z_tg(Z_tg==Vtg)=NaN;
 
 %% Error analysis
 % Time series
   k=~isnan(Z_rf) & ~isnan(Z_tg);
-
-% Statistics
   N=length(find(k)); % Sample size
+
   if N>=size(Z_rf,1)*size(Z_rf,2)*(1-thr)
-    m_tg=mean(Z_tg(k)); % Mean of target map
-    m_rf=mean(Z_rf(k)); % Mean of reference map
-    v_tg=var(Z_tg(k),1); % Variance of target map
-    v_rf=var(Z_rf(k),1); % Variance of reference map
-    STs.TS(t,:)=[N m_tg m_rf v_tg v_rf];
+    [sts,ems,css]=errM_TS(Z_rf,Z_tg,Z_thr);
 
-% Error metrics
-    RMS=sqrt(mean((Z_tg(k)-Z_rf(k)).^2)); % Root mean square error
-    CRMS=std(Z_tg(k)-Z_rf(k),1); % Centered root mean square error
-    CC=corr(Z_tg(k),Z_rf(k)); % Correlation coefficient
-    NSE=1-sum((Z_tg(k)-Z_rf(k)).^2)/(N*v_rf); % Nash Sutcliff efficiency
-    KGE=1-sqrt((CC-1)^2+(m_tg/m_rf-1)^2+(sqrt(v_tg)/sqrt(v_rf)*m_rf/m_tg-1)^2); % Kling-Gupta efficiency
-    EMs.TS(t,:)=[RMS CRMS CC NSE KGE];
-
-% Contigency statistics
+    STs(t,:)=sts; % Statistics
+    EMs(t,:)=ems; % Error metrics
     if ~isempty(Z_thr)
-      r_h=length(find(Z_tg(k)>Z_thr & Z_rf(k)>Z_thr))/N; % Hit rate
-      r_m=length(find(Z_tg(k)<=Z_thr & Z_rf(k)>Z_thr))/N; % Missing rate
-      r_f=length(find(Z_tg(k)>Z_thr & Z_rf(k)<=Z_thr))/N; % False alarm rate
-      r_n=length(find(Z_tg(k)<=Z_thr & Z_rf(k)<=Z_thr))/N; % Correct negative rate
-      CSs.TS(t,:)=[r_h r_m r_f r_n];
+      CSs(t,:)=css; % Contigency statistics
     end
   end
 
@@ -194,7 +156,6 @@ m_rf=Za_rf./Na; % Mean of reference time series
 m_tg=Za_tg./Na; % Mean of target time series
 v_rf=Za2_rf./Na-m_rf.^2; % Variance of reference time series
 v_tg=Za2_tg./Na-m_tg.^2; % Variance of target time series
-STs.RS=cat(3,Na,m_tg,m_rf,v_tg,v_rf);
 
 % Error metrics
 dZa2(~k)=NaN;
@@ -205,7 +166,6 @@ CRMS=sqrt(dZa2./Na-(dZa./Na).^2); % Centered root mean square error
 CC=(pZa./Na-m_tg.*m_rf)./sqrt(v_rf.*v_tg); % Correlation coefficient
 NSE=1-dZa2./(Na.*v_rf); % Nash Sutcliff efficiency
 KGE=1-sqrt((CC-1).^2+(m_tg./m_rf-1).^2+(sqrt(v_tg)./sqrt(v_rf).*m_rf./m_tg-1).^2); % Kling-Gupta efficiency
-EMs.RS=cat(3,RMS,CRMS,CC,NSE,KGE);
 
 % Contigency statistics
 if ~isempty(Z_thr)
@@ -217,6 +177,11 @@ if ~isempty(Z_thr)
   Na_m=Na_m./Na; % Missing rate
   Na_f=Na_f./Na; % False alarm rate
   Na_n=Na_n./Na; % Correct negative rate
-  CSs.RS=cat(3,Na_h,Na_m,Na_f,Na_n); 
+
+  RS=struct('STs',cat(3,Na,m_tg,m_rf,v_tg,v_rf),'EMs',cat(3,RMS,CRMS,CC,NSE,KGE),'CSs',cat(3,Na_h,Na_m,Na_f,Na_n));
+  TS=struct('STs',STs,'EMs',EMs,'CSs',CSs);
+else
+  RS=struct('STs',cat(3,Na,m_tg,m_rf,v_tg,v_rf),'EMs',cat(3,RMS,CRMS,CC,NSE,KGE));
+  TS=struct('STs',STs,'EMs',EMs);
 end
 end
