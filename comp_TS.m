@@ -22,8 +22,7 @@
 %   cf   : factor used to convert the unit of target data to reference;
 %   md   : max distance between the matched target and reference location pair;
 %   Thr  : thresholds used to calculate the contigency statistics for different
-%          groups (set
-%          it to "[]" if no need to output the contigency statistics);
+%          groups (set it to "[]" if no need to output the contigency statistics);
 %  outn  : variable name for the target time series outputted (set it to "[]"
 %          if no need to output the time series);
 %  opth  : output path to store the matched time series with time information
@@ -61,7 +60,6 @@ end
 id(d>md)=[];
 Stg=Stg(id);
 Ttg=Ttg(id);
-
 clear id d md Gtg Rtg Ctg t
 
 %% Error metrics and statistics

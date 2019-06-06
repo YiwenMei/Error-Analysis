@@ -47,7 +47,9 @@
 % CSs includes time series and maps of rate of
 %  1)hit, 2)missing, 3)false alarm, and 4)correct negative.
 
-function [TS,RS]=comp_RS(Ftg,Ntg,Vtg,Gtg,Ttg,Rtg,Ctg,Frf,Nrf,Vrf,Grf,Trf,Rrf,Crf,cf,Z_thr,thr,wkpth)
+function [TS,RS]=comp_RS(Ftg,Ntg,Vtg,Gtg,Ttg,Rtg,Ctg,Frf,Nrf,Vrf,Grf,Trf,Rrf,Crf,fRtg,cf,Z_thr,thr,wkpth)
+fprintf('\nStart');
+
 Rrf=Rrf/24; % Convert from hour to day
 Rtg=Rtg/24;
 if strcmp(Ctg,'f') % Make the target record to the centered time convention
@@ -56,9 +58,18 @@ elseif strcmp(Ctg,'b')
   Ttg=Ttg+Rtg/2;
 end
 
+rs=Grf(1,3)/Gtg(1,3);
+if rs>1
+  if ~isempty(fRtg)
+    Grf(:,3)=Gtg(:,3);
+  else
+    Gtg(:,3)=Grf(:,3);
+  end
+else
+  Grf(:,3)=Gtg(:,3);
+end
+  
 % Target/reference coordinate
-xtg=Gtg(1,1)+Gtg(1,3)/2:Gtg(1,3):Gtg(1,2)-Gtg(1,3)/2;
-ytg=Gtg(2,1)-Gtg(2,3)/2:-Gtg(2,3):Gtg(2,2)+Gtg(2,3)/2;
 xrf=Grf(1,1)+Grf(1,3)/2:Grf(1,3):Grf(1,2)-Grf(1,3)/2;
 yrf=Grf(2,1)-Grf(2,3)/2:-Grf(2,3):Grf(2,2)+Grf(2,3)/2;
 
@@ -82,6 +93,17 @@ for t=1:size(Frf,1)
 %% Reference image
 % Read the image
   Z_rf=read2Dvar(Frf(t,:),Nrf,Vrf);
+% Match reference resolution to target
+  if rs>1 % If target is finer fRtg is needed
+    if ~isempty(fRtg) % Match the ref resolution to target
+      Z_rf=imresize(Z_rf,rs,fRtg);
+    end
+  elseif rs<1 % If reference is finer
+    Z_rf(isnan(Z_rf))=Vrf;
+    idn=fullfile(wkpth,sprintf('id_rs%d_%d.mat',Grf(1,3),Gtg(1,3)));
+    Z_rf=resizeimg(Z_rf,Vrf,Gtg(1,:),Gtg(2,:),idn,thr,Grf(1,:),Grf(2,:));
+    Z_rf(Z_rf==Vrf)=NaN;
+  end
 
 %% Target image
   if strcmp(Crf,'f') % Forward
@@ -92,29 +114,35 @@ for t=1:size(Frf,1)
     ftg=Ftg(Ttg>=Trf(t) & Ttg<Trf(t)+Rrf,:);
   end
 
+  if ~isempty(ftg)
 % Read the image
-  Z_tg=nan(length(ytg),length(xtg),1);
-  N=nan(length(ytg),length(xtg),1);
-  for ti=1:size(ftg,1)
-    z_tg=read2Dvar(ftg(ti,:),Ntg,Vtg);
+    Z_tg=[];
+    N=[];
+    for ti=1:size(ftg,1)
+      z_tg=read2Dvar(ftg(ti,:),Ntg,Vtg);
+      Z_tg=nansum(cat(3,Z_tg,z_tg),3);
+      k=double(~isnan(z_tg));
+      N=nansum(cat(3,N,k),3); % All NaN means 0
+    end
 
-    Z_tg=nansum(cat(3,Z_tg,z_tg),3);
-    k=double(~isnan(z_tg));
-    N=nansum(cat(3,N,k),3); % All NaN means 0
-  end
 % Aggregate target image
-  Z_tg=cf*Z_tg./N; % Convert to unit of reference
-  Z_tg(isnan(Z_tg))=Vtg;
-  idn=fullfile(wkpth,sprintf('id_rs%d_%d.mat',Gtg(1,3),Grf(1,3)));
-  Z_tg=resizeimg(Z_tg,Vtg,Grf(1,:),Grf(2,:),idn,thr,Gtg(1,:),Gtg(2,:));
-  Z_tg(Z_tg==Vtg)=NaN;
+    Z_tg=cf*Z_tg./N; % Convert to unit of reference
+    clear z_tg N
+    Z_tg(isnan(Z_tg))=Vtg;
+    idn=fullfile(wkpth,sprintf('id_rs%d_%d.mat',Gtg(1,3),Grf(1,3)));
+    Z_tg=resizeimg(Z_tg,Vtg,Grf(1,:),Grf(2,:),idn,thr,Gtg(1,:),Gtg(2,:));
+    Z_tg(Z_tg==Vtg)=NaN;
+
+  else
+    Z_tg=nan(size(Z_rf));
+  end
 
 %% Error analysis
 % Time series
   k=~isnan(Z_rf) & ~isnan(Z_tg);
   N=length(find(k)); % Sample size
 
-  if N>=size(Z_rf,1)*size(Z_rf,2)*(1-thr)
+  if N>size(Z_rf,1)*size(Z_rf,2)*(1-thr)
     [sts,ems,css]=errM_TS(Z_rf,Z_tg,Z_thr);
 
     STs(t,:)=sts; % Statistics
@@ -142,6 +170,14 @@ for t=1:size(Frf,1)
     Na_m=sum(cat(3,Na_m,double(Z_tg<=Z_thr & Z_rf>Z_thr)),3);
     Na_f=sum(cat(3,Na_f,double(Z_tg>Z_thr & Z_rf<=Z_thr)),3);
     Na_n=sum(cat(3,Na_n,double(Z_tg<=Z_thr & Z_rf<=Z_thr)),3);
+  end
+
+% Progress indicator
+  if rem(t,floor(size(Frf,1)/100))==0
+    fprintf('--');
+    if rem(t,25*floor(size(Frf,1)/100))==0
+      fprintf('%i%%\n',round(t/size(Frf,1)*100));
+    end
   end
 end
 k=Na>=20/Rrf;
@@ -184,4 +220,7 @@ else
   RS=struct('STs',cat(3,Na,m_tg,m_rf,v_tg,v_rf),'EMs',cat(3,RMS,CRMS,CC,NSE,KGE));
   TS=struct('STs',STs,'EMs',EMs);
 end
+
+delete([wkpth 'id*.mat']);
+fprintf('Done!\n');
 end
