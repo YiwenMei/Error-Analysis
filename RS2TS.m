@@ -72,7 +72,7 @@ end
 % Read the target image data
 Stg1=nan(size(Ftg,1),length(id));
 parfor t=1:size(Ftg,1)
-  Z=read2Dvar(Ftg(t,:),Ntg,ndv);
+  Z=read2Dvar({Ftg(t,:),ndv,Inf,-Inf,Ntg});
 
 % Extract time series of interested locations
   Stg1(t,:)=Z(id);

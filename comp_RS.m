@@ -59,32 +59,19 @@ elseif strcmp(Ctg,'b')
 end
 
 rs=Grf(1,3)/Gtg(1,3);
-if rs>1
-  if ~isempty(fRtg)
-    Grf(:,3)=Gtg(:,3);
-  else
-    Gtg(:,3)=Grf(:,3);
-  end
-else
-  Grf(:,3)=Gtg(:,3);
-end
-  
-% Target/reference coordinate
-xrf=Grf(1,1)+Grf(1,3)/2:Grf(1,3):Grf(1,2)-Grf(1,3)/2;
-yrf=Grf(2,1)-Grf(2,3)/2:-Grf(2,3):Grf(2,2)+Grf(2,3)/2;
 
-Na=zeros(length(yrf),length(xrf));
-Za_tg=zeros(length(yrf),length(xrf));
-Za_rf=zeros(length(yrf),length(xrf));
-Za2_tg=zeros(length(yrf),length(xrf));
-Za2_rf=zeros(length(yrf),length(xrf));
-Na_h=zeros(length(yrf),length(xrf));
-Na_m=zeros(length(yrf),length(xrf));
-Na_f=zeros(length(yrf),length(xrf));
-Na_n=zeros(length(yrf),length(xrf));
-pZa=zeros(length(yrf),length(xrf));
-dZa=zeros(length(yrf),length(xrf));
-dZa2=zeros(length(yrf),length(xrf));
+Na=[];
+Za_tg=[];
+Za_rf=[];
+Za2_tg=[];
+Za2_rf=[];
+Na_h=[];
+Na_m=[];
+Na_f=[];
+Na_n=[];
+pZa=[];
+dZa=[];
+dZa2=[];
 
 STs=nan(size(Frf,1),5);
 EMs=nan(size(Frf,1),5);
@@ -92,17 +79,19 @@ CSs=nan(size(Frf,1),4);
 for t=1:size(Frf,1)
 %% Reference image
 % Read the image
-  Z_rf=read2Dvar(Frf(t,:),Nrf,Vrf);
+  Z_rf=read2Dvar({Frf(t,:),Vrf,Inf,-Inf,Nrf});
 % Match reference resolution to target
   if rs>1 % If target is finer fRtg is needed
     if ~isempty(fRtg) % Match the ref resolution to target
       Z_rf=imresize(Z_rf,rs,fRtg);
+      Grf(:,3)=Gtg(:,3);
     end
   elseif rs<1 % If reference is finer
     Z_rf(isnan(Z_rf))=Vrf;
     idn=fullfile(wkpth,sprintf('id_rs%d_%d.mat',Grf(1,3),Gtg(1,3)));
     Z_rf=resizeimg(Z_rf,Vrf,Gtg(1,:),Gtg(2,:),idn,thr,Grf(1,:),Grf(2,:));
     Z_rf(Z_rf==Vrf)=NaN;
+    Grf=Gtg;
   end
 
 %% Target image
@@ -119,7 +108,7 @@ for t=1:size(Frf,1)
     Z_tg=[];
     N=[];
     for ti=1:size(ftg,1)
-      z_tg=read2Dvar(ftg(ti,:),Ntg,Vtg);
+      z_tg=read2Dvar({ftg(ti,:),Vtg,Inf,-Inf,Ntg});
       Z_tg=nansum(cat(3,Z_tg,z_tg),3);
       k=double(~isnan(z_tg));
       N=nansum(cat(3,N,k),3); % All NaN means 0
