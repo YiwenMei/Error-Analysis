@@ -34,14 +34,15 @@ parse(ips,y,Mod,Prms);
 clear ips
 
 %% Parameter estimation or transformed value calculation
-if size(Prms,2)==1
+j=size(Prms,2);
+if j==1
   Prms=[Prms zeros(size(Prms))];
 end
 
 switch Mod
   case 'PEst' % Calibration mode
     Prms_i=mean(Prms,1);
-    Prms_h=fminsearchbnd(@(Prms)BoxCoxOpt(y,Prms),Prms_i,Prms(2,:),Prms(1,:));
+    Prms_h=fminsearchbnd(@(Prms)BoxCoxOpt(y,Mod,Prms),Prms_i,Prms(2,:),Prms(1,:));
 
   case {'A2BC','BC2A'} % Calculation mode
     Prms_h=Prms;
@@ -52,6 +53,9 @@ end
 
 %% Box-Cox transformation
 yTrs=BoxCoxTrs(y,Mod,Prms_h);
+if j==1
+  Prms_h=Prms_h(1);
+end
 end
 
 function [yTrs,yS]=BoxCoxTrs(y,Mod,Prms)
