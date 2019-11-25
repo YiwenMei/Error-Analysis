@@ -58,11 +58,14 @@ ips.FunctionName=mfilename;
 addRequired(ips,'OStg',@(x) validateattributes(x,{'V2DTCls','Wind2DTCls'},{'nonempty'},...
     mfilename,'OStg'));
 addRequired(ips,'rfT',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'rfT'));
-addRequired(ips,'LOI',@(x) validateattributes(x,{'V2DCls','table'},{'nonempty'},mfilename,'LOI'));
-addRequired(ips,'Drf',@(x) validateattributes(x,{'V2DCls','cell'},{'nonempty'},mfilename,'Drf'));
+addRequired(ips,'LOI',@(x) validateattributes(x,{'V2DCls','table'},{'nonempty'},...
+    mfilename,'LOI'));
+addRequired(ips,'Drf',@(x) validateattributes(x,{'V2DCls','cell'},{'nonempty'},...
+    mfilename,'Drf'));
 addRequired(ips,'opth',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'opth'));
 
-addOptional(ips,'pflg',false,@(x) validateattributes(x,{'logical'},{'nonempty'},mfilename,'pflg'));
+addOptional(ips,'pflg',false,@(x) validateattributes(x,{'logical'},{'nonempty'},...
+    mfilename,'pflg'));
 addOptional(ips,'cf',1,@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'cf'));
 
 parse(ips,OStg,rfT,LOI,Drf,opth,varargin{:});
@@ -114,14 +117,13 @@ OTfn={};
 X=X(id);
 Y=Y(id);
 
-TC2=Drf{1}.Properties.Description;
-
 for s=1:size(Stg,2)
   TS1=Stg(:,s);
   TL1=Ttg(~isnan(TS1));
   TS1=TS1(~isnan(TS1));
 
-  TR2=mode(diff(Drf{s}.Dnum));
+  TR2=Drf{s}.Properties.CustomProperties.T_Res;
+  TC2=Drf{s}.Properties.CustomProperties.T_Conv;
   TL2=Drf{s}.Dnum;
   TS2=table2array(Drf{s}(:,2));
   TL2=TL2(~isnan(TS2));
@@ -132,8 +134,8 @@ for s=1:size(Stg,2)
   Gtg.Y=Y(s);
   unt=Drf{s}.Properties.VariableUnits{2};
   ofn=fullfile(opth,sprintf('px_%s_%s.mat',LOI.ID{s},OStg.vtp));
-  OTS=TSCls(OStg.vtp,OStg.Ulm,OStg.Llm,Gtg,LOI.Cat(s),OStg.ofs,TS1,TL1,OStg.TmR,OStg.TmC,...
-      LOI.ofs(s),TS2,TL2,TR2,TC2,unt,{ofn});
+  OTS=TSCls(OStg.vtp,cf*OStg.Ulm,cf*OStg.Llm,Gtg,LOI.Cat(s),OStg.ofs,TS1,TL1,OStg.TmR,...
+      OStg.TmC,LOI.ofs(s),TS2,TL2,TR2,TC2,unt,{ofn});
 
   save(ofn,'OTS');
   OTfn=[OTfn;{ofn}];
@@ -210,8 +212,8 @@ TL2=TL2(~isnan(TS2));
 TS2=TS2(~isnan(TS2));
 
 OTfn=fullfile(opth,sprintf('ba_%s_%s.mat',bfn,OStg.vtp));
-OTS=TSCls(OSrf.vtp,OStg.Ulm,OStg.Llm,Gtg,OSmk.gid,OStg.ofs,TS1,TL1,OStg.TmR,OStg.TmC,...
-    OSrf.ofs,TS2,TL2,OSrf.TmR,OSrf.TmC,OSrf.unt,{OTfn});
+OTS=TSCls(OSrf.vtp,cf*OStg.Ulm,cf*OStg.Llm,Gtg,OSmk.gid,OStg.ofs,TS1,TL1,OStg.TmR,...
+    OStg.TmC,OSrf.ofs,TS2,TL2,OSrf.TmR,OSrf.TmC,OSrf.unt,{OTfn});
 
 save(OTfn,'OTS');
 OTfn={OTfn};
