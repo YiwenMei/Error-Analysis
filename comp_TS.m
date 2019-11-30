@@ -71,8 +71,8 @@ CSs=[];
 % Each station
 switch pflg
   case true
-    parfor n=1:length(ofl)
-      [sts,ems,css,sgs,stg,rn,gid]=comp_TS_sub(ofl,n,a,Thr); % Each station
+    parfor n=1:size(ofl,1)
+      [sts,ems,css,sgs,stg,rn,gid]=comp_TS_sub(ofl(n,:),a,Thr); % Each station
 
       STs=[STs;sts];
       EMs=[EMs;ems];
@@ -87,8 +87,8 @@ switch pflg
     end
 
   case false
-    for n=1:length(ofl)
-      [sts,ems,css,sgs,stg,rn,gid]=comp_TS_sub(ofl,n,a,Thr); % Each station
+    for n=1:size(ofl,1)
+      [sts,ems,css,sgs,stg,rn,gid]=comp_TS_sub(ofl(n,:),a,Thr); % Each station
 
       STs=[STs;sts];
       EMs=[EMs;ems];
@@ -115,78 +115,74 @@ end
 
 %% Label the results
 if ~isempty(RN)
-  if size(ofl,2)==1
-    STs=array2table(STs,'VariableNames',{'N','m_tg','m_rf','v_tg','v_rf'},'RowNames',RN);
-    EMs=array2table(EMs,'VariableNames',{'RMS','CRMS','CC','NSE','KGE'},'RowNames',RN);
-    if ~isempty(CSs)
-      CSs=array2table(CSs,'VariableNames',{'r_h','r_m','r_f','r_n'},'RowNames',RN);
-    end
-    
-  elseif size(ofl,2)==2
-    STs=array2table(STs,'VariableNames',{'N','m_tg1','m_tg2','m_rf','v_tg1',...
-        'v_tg2','v_rf'},'RowNames',RN);
-    EMs=array2table(EMs,'VariableNames',{'RMS1','RMS2','CRMS1','CRMS2','CC1',...
-        'CC2','NSE1','NSE2','KGE1','KGE2'},'RowNames',RN);
-    if ~isempty(CSs)
-      CSs=array2table(CSs,'VariableNames',{'r_h1','r_h2','r_m1','r_m2','r_f1',...
-        'r_f2','r_n1','r_n2'},'RowNames',RN);
-    end
+  nl1=cellfun(@(X) sprintf('m_tg%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  nl2=cellfun(@(X) sprintf('v_tg%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  STs=array2table(STs,'VariableNames',['N' nl1 'm_rf' nl2 'v_rf'],'RowNames',RN);
+
+  nl1=cellfun(@(X) sprintf('RMS%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  nl2=cellfun(@(X) sprintf('CRMS%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  nl3=cellfun(@(X) sprintf('CC%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  nl4=cellfun(@(X) sprintf('NSE%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  nl5=cellfun(@(X) sprintf('KGE%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  EMs=array2table(EMs,'VariableNames',[nl1 nl2 nl3 nl4 nl5],'RowNames',RN);
+
+  nl1=cellfun(@(X) sprintf('ME%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  nl2=cellfun(@(X) sprintf('CRMS%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  nl3=cellfun(@(X) sprintf('CC%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+  K=num2cell(nchoosek(1:size(ofl,2),2))';
+  nl4=cellfun(@(X,Y) sprintf('ME%i_%i',X,Y),K(1,:),K(2,:),'UniformOutput',false);
+  nl5=cellfun(@(X,Y) sprintf('CRMS%i_%i',X,Y),K(1,:),K(2,:),'UniformOutput',false);
+  nl6=cellfun(@(X,Y) sprintf('CC%i_%i',X,Y),K(1,:),K(2,:),'UniformOutput',false);
+  SGs=array2table(SGs,'VariableNames',[nl1 nl2 nl3 nl4 nl5 nl6],'RowNames',RN);
+
+  if ~isempty(CSs)
+    nl1=cellfun(@(X) sprintf('r_h%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+    nl2=cellfun(@(X) sprintf('r_m%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+    nl3=cellfun(@(X) sprintf('r_f%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+    nl4=cellfun(@(X) sprintf('r_n%i',X),num2cell(1:size(ofl,2)),'UniformOutput',false);
+    CSs=array2table(CSs,'VariableNames',[nl1 nl2 nl3 nl4],'RowNames',RN);
   end
-
-  SGs=array2table(SGs,'VariableNames',{'ME','CRMS','CC'},'RowNames',RN);
 end
 end
 
-function [sts,ems,css,sgs,stg,rn,gid]=comp_TS_sub(ofl,n,a,Thr)
+function [sts,ems,css,sgs,TS,rn,gid]=comp_TS_sub(ofl,a,Thr)
 %% One target
-if size(ofl,2)==1
+for i=1:length(ofl)
 % Load the TSCls.m object
-  OTS=matfile(ofl{n});
+  OTS=matfile(ofl{i});
   OTS=OTS.OTS;
 
 % Match target time resolution to reference
   [Ttg,Trf]=OTS.UniTL('rf'); % Unify the time zones
+  if i==1 % Reference time series
+    TS=array2table([Trf OTS.TS2],'VariableNames',{'Dnum','Srf'});
+  end
 
 % Aggregate the target time series
   stg=[];
   for t=1:length(Trf)
     k=Ttg>=Trf(t)-OTS.TR2/24/2 & Ttg<Trf(t)+OTS.TR2/24/2;
     if any(k)
-      stg=[stg;[mean(OTS.TS1(k)) OTS.TS2(t)]];
+      stg=[stg;[Trf(t) mean(OTS.TS1(k))]];
     end
   end
 
-elseif size(ofl,2)==2
-%% Two target
-% Load the TSCls.m object
-  OTS=matfile(ofl{n,1});
-  OTS=OTS.OTS;
-  OTS2=matfile(ofl{n,2});
-  OTS2=OTS2.OTS;
-
-% Match target time resolution to reference
-  [Ttg1,Trf]=OTS.UniTL('rf'); % Unify the time zones
-  [Ttg2,trf]=OTS2.UniTL('rf'); % Unify the time zones
-  if any(trf~=Trf)
-    error('Reference series time line mismatched');
-  end
-  clear trf
-
-% Aggregate the target time series
-  stg=[];
-  for t=1:length(Trf)
-    k1=Ttg1>=Trf(t)-OTS.TR2/24/2 & Ttg1<Trf(t)+OTS.TR2/24/2;
-    k2=Ttg2>=Trf(t)-OTS2.TR2/24/2 & Ttg2<Trf(t)+OTS2.TR2/24/2;
-    if any(k1) && any(k2)
-      stg=[stg;[mean(OTS.TS1(k1)) mean(OTS2.TS1(k2)) OTS.TS2(t)]];
-    end
+% Join the target with reference
+  if ~isempty(stg)
+    stg=array2table(stg,'VariableNames',[{'Dnum'} sprintf('Stg%i',i)]);
+    TS=innerjoin(stg,TS,'Keys','Dnum');
+  else
+    TS=[];
+    break;
   end
 end
+clear stg k Trf Ttg
 
 %% Perform the stats/error calculation
 gid=OTS.gid;
-if size(stg,1)>1
-  [sts,ems,sgs,css]=errM(stg,a,Thr);
+if size(TS,1)>1
+  TS=table2array(TS(:,2:end));
+  [sts,ems,sgs,css]=errM(TS,a,Thr);
   rn=OTS.Gtg.ID;
 
 else

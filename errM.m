@@ -52,8 +52,9 @@ sts=[N mn vr];
 %% Error metrics
 ems=nan(1,5*(size(TS,2)-1));
 css=nan(1,4*(size(TS,2)-1));
+sgs=nan(1,3*(size(TS,2)-1));
 for i=1:size(TS,2)-1
-  Ts=TS(:,[i end]);
+  Ts=TS(:,[end i]);
   RMS=sqrt(mean(diff(Ts,[],2).^2)); % Root mean square error
   CRMS=std(diff(Ts,[],2),1); % Centered root mean square error
   CC=corr(Ts); % Correlation coefficient
@@ -61,7 +62,7 @@ for i=1:size(TS,2)-1
   KGE=1-sqrt((CC-1).^2+(mn(i)/mn(end)-1)^2+(sqrt(vr(i)/vr(end))-1)^2); % Kling-Gupta efficiency
   ems(i:(size(TS,2)-1):end)=[RMS CRMS CC(2,1) NSE KGE(2,1)];
 
-%% Contigency statistics
+% Contigency statistics
   if ~isempty(Thr)
     [th,j]=min(Ts,[],2);
     [th1,~]=max(Ts,[],2);
@@ -72,28 +73,28 @@ for i=1:size(TS,2)-1
     r_f=length(find(th<=Thr & th1>Thr & j==2))/N; % False alarm rate
     css(i:(size(TS,2)-1):end)=[r_h r_m r_f r_n];
   end
-end
 
 %% Significant tests
-if size(TS,2)==2
-% ME sig >0 (1) or not (0); the same for MRE
-  H1=ttest(TS(:,1),TS(:,2),'Alpha',a); 
-% CRMS sig >0 (1) or not (0); the same for NCRMS
-  H2=vartest(diff(TS,1,2),0,'Alpha',a);
-% CC sig >0 (1) or not (0)
-  [~,H3]=corr(TS);
+% Single significant tests
+  H1=ttest(Ts(:,2),Ts(:,1),'Alpha',a); % M(R)E sig <>0 (1) or not (0);
+  H2=vartest(diff(Ts,1,2),0,'Alpha',a); % (N)CRMS sig <>0 (1) or not (0);
+  [~,H3]=corr(Ts); % CC sig <>0 (1) or not (0)
   H3=H3(2,1)<a;
-
-elseif size(TS,2)==3
-% ME1 sig <> ME2 (1) or not (0); the same for MRE
-  H1=ttest2(diff(TS(:,[3 1]),1,2),diff(TS(:,[3 2]),1,2),'Alpha',a);
-% CRMS1 sig <> CRMS2 (1) or not (0); the same for NCRMS
-  H2=vartest2(diff(TS(:,[3 1]),1,2),diff(TS(:,[3 2]),1,2),'Alpha',a);
-% CC1 sig <> CC2 (1) or not (0)
-  H3=Cor2OverlapTTest(TS(:,3),TS(:,1),TS(:,2),a);
+  sgs(i:(size(TS,2)-1):end)=[H1 H2 H3];
 end
 
-sgs=[H1 H2 H3];
+% Paired significant tests
+K=nchoosek(1:size(TS,2)-1,2);
+H1=nan(1,size(K,1));
+H2=nan(1,size(K,1));
+H3=nan(1,size(K,1));
+for i=1:size(K,1)
+  Ts=TS(:,K(i,:))-TS(:,end);
+  H1(i)=ttest2(Ts(:,1),Ts(:,2),'Alpha',a); % M(R)E_a sig <> M(R)E_b (1) or not (0);
+  H2(i)=vartest2(Ts(:,1),Ts(:,2),'Alpha',a); % (N)CRMS_a sig <> (N)CRMS_b (1) or not (0);
+  H3(i)=Cor2OverlapTTest(TS(:,end),TS(:,K(i,1)),TS(:,K(i,2)),a); % CC_a sig <> CC_b (1) or not (0)
+end
+sgs=[sgs H1 H2 H3];
 end
 
 function [H,Ha,pv]=Cor2OverlapTTest(Sref,S1,S2,alp)
