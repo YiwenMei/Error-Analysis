@@ -69,8 +69,8 @@ for i=1:size(TS,2)-1
 
     r_h=length(find(th>Thr))/N; % Hit rate
     r_n=length(find(th1<=Thr))/N; % Correct negative rate
-    r_m=length(find(th<=Thr & th1>Thr & j==1))/N; % Missing rate
-    r_f=length(find(th<=Thr & th1>Thr & j==2))/N; % False alarm rate
+    r_f=length(find(th<=Thr & th1>Thr & j==1))/N; % False alarm rate
+    r_m=length(find(th<=Thr & th1>Thr & j==2))/N; % Missing rate
     css(i:(size(TS,2)-1):end)=[r_h r_m r_f r_n];
   end
 

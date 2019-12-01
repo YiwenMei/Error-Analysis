@@ -146,7 +146,7 @@ end
 end
 
 function [sts,ems,css,sgs,TS,rn,gid]=comp_TS_sub(ofl,a,Thr)
-%% One target
+%% Align the time series
 for i=1:length(ofl)
 % Load the TSCls.m object
   OTS=matfile(ofl{i});
@@ -180,12 +180,13 @@ clear stg k Trf Ttg
 
 %% Perform the stats/error calculation
 gid=OTS.gid;
-if size(TS,1)>1
+if size(TS,1)>4
   TS=table2array(TS(:,2:end));
   [sts,ems,sgs,css]=errM(TS,a,Thr);
   rn=OTS.Gtg.ID;
 
 else
+  TS=[];
   sts=[];
   ems=[];
   css=[];
