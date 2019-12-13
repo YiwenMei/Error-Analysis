@@ -109,7 +109,7 @@ switch pflg
     end
 end
 
-Ttg=OStg.TimeCls; % time line of target image time series
+Ttg=OStg.TimeCls(OStg.TmR); % time line of target image stack in UTC
 
 %% Construct the time series class
 OTfn={};
@@ -144,7 +144,7 @@ end
 
 function OTfn=RS2TS_sub1(OStg,OSmk,OSrf,cf,opth,pflg)
 %% ID of mask on target and reference image stacks
-if ~isempty(find(min([OStg.Gtg(3,:);OSrf.Gtg(3,:)],[],1)<OSmk.Gtg(3,:), 1))
+if ~isempty(find(min([OStg.GIf(3,:);OSrf.GIf(3,:)],[],1)<OSmk.GIf(3,:), 1))
   error('Resolutions of mask must be finer than the target and reference images');
 else
   [x,y]=OSmk.GridCls;
@@ -168,8 +168,8 @@ Y2=reshape(Y2,numel(Y2),1);
 id2=knnsearch([X2 Y2],[x y],'K',1);
 
 %% Read and extract the target image data
-TL1=OStg.TimeCls; % time line
-TL2=OSrf.TimeCls;
+TL1=OStg.TimeCls(OStg.TmR); % time line
+TL2=OSrf.TimeCls(OSrf.TmR);
 
 TS1=[];
 TS2=[];

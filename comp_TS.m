@@ -3,10 +3,10 @@
 % Last update: 11/20/2019
 
 %% Functionality
-% This code performs error analysis for one or two target time series with respect
-%  to a reference. Specifically, it calculates statistics (sample size, mean,
-%  and variance), error metrics (RMS, CRMS, CC, NSE, and KGE), results of three
-%  statistical significant tests (for ME/MRE, CRMS/NCRMS, and CC), and contigency
+% This code performs error analysis for one or multiple target time series with
+%  respect to a common reference. Specifically, it calculates statistics (sample
+%  size, mean, and variance), error metrics (RMS, CRMS, CC, NSE, and KGE), results
+%  of three statistical significant tests (for M(R)E, (N)CRMS, and CC), and contigency
 %  statistics (optional, percentage of H, M, F, and N).
 
 %% Input
@@ -24,6 +24,7 @@
 %       and variance);
 % EMs: table stores the error metrics (RMS, CRMS, CC, NSE, and KGE);
 % SGs: table stores the significant tests results (ME/MRE, CRMS/NCRMS, and CC);
+% Stg: matched time series;
 
 % CSs: table stores the contigency statistics (percentage of H, M, F, and N).
 
@@ -38,7 +39,7 @@
 
 % Require TSCLs.m and errM.m.
 
-function [STs,EMs,SGs,CSs]=comp_TS(ofl,varargin)
+function [STs,EMs,SGs,Stg,CSs]=comp_TS(ofl,varargin)
 %% Check the inputs
 narginchk(1,4);
 ips=inputParser;
