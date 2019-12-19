@@ -17,10 +17,10 @@
 % wkpth: working directory of the code;
 
 % pflg: parallel flag (false/true - squential/parallel, default is false);
-%  a  : significant level for the statistical significant test (defaul is 0.05);
-%  cf : multiplicative conversion factor to reference unit (default is 1);
 % Thr : thresholds used to calculate the contigency statistics for the time series
 %        of different locations (default is []).
+%  cf : multiplicative conversion factor to reference unit (default is 1);
+%  a  : significant level for the statistical significant test (defaul is 0.05);
 
 %% Output
 % TS/RS: structure array stores the time series/spatial image of statistics,
@@ -55,14 +55,14 @@ addOptional(ips,'pflg',false,@(x) validateattributes(x,{'logical'},{'nonempty'},
     mfilename,'pflg'));
 addOptional(ips,'Thr',[],@(x) validateattributes(x,{'double'},{'nonempty'},...
     mfilename,'Thr'));
-addOptional(ips,'a',.05,@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'a'));
 addOptional(ips,'cf',1,@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'cf'));
+addOptional(ips,'a',.05,@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'a'));
 
 parse(ips,OStg,OSrf,wkpth,varargin{:});
 pflg=ips.Results.pflg;
 Thr=ips.Results.Thr;
-a=ips.Results.a;
 cf=ips.Results.cf;
+a=ips.Results.a;
 clear ips varargin
 
 %% Align the images
@@ -167,12 +167,14 @@ delete(fullfile(wkpth,'id_*.mat'));
 k=N>4;
 N(~k)=NaN;
 
+% Statistics
 m_tg=Z_tg./N; % Mean of target time series
 m_rf=Z_rf./N; % Mean of reference time series
 v_tg=Z2_tg./N-m_tg.^2; % Variance of target time series
 v_rf=Z2_rf./N-m_rf.^2; % Variance of reference time series
 clear Z_tg Z_rf Z2_tg Z2_rf
 
+% Error metrics
 RMS=sqrt(dZ2./N); % Root mean square error
 CRMS=sqrt(dZ2./N-(dZ./N).^2); % Centered root mean square error
 CC=(pZ./N-m_tg.*m_rf)./sqrt(v_rf.*v_tg); % Correlation coefficient
@@ -181,23 +183,28 @@ NSE=1-dZ2./(N.*v_rf); % Nash Sutcliff efficiency
 KGE=1-sqrt((CC-1).^2+(m_tg./m_rf-1).^2+(sqrt(v_tg)./sqrt(v_rf).*m_rf./m_tg-1).^2);
 clear dZ2 dZ pZ
 
-p=2*(1-tcdf((m_tg-m_rf)./(CRMS./sqrt(N)),N-1)); % m_tg-m_rf-uthr
+% Significant tests
+ts=(m_tg-m_rf)./(CRMS./sqrt(N)); % m_tg-m_rf-uthr
+p=1-tcdf(abs(ts),N-1)+tcdf(-abs(ts),N-1);
 H1=p<a; % M(R)E sig<> 0 (1) or not (0)
-p=chi2cdf((N-1).*CRMS.^2./v_rf,N-1); % CRMS.^2./v_rf/uthr
+ts=(N-1).*CRMS.^2./v_rf; % CRMS.^2./v_rf/uthr
+p=chi2cdf(ts,N-1); % left-tailed
 H2=p<a; % (N)CRMS sig< SD_rf (1) or not (0);
-p=2*(1-normcdf(.5*log((1+CC)./(1-CC)),0,1./sqrt(N-3))); % 0 -> uthr
+ts=(.5*log((1+CC)./(1-CC)))./sqrt(N-3); % .5*log((1+CC)./(1-CC))-uthr
+p=1-normcdf(ts,0,1); % right-tailed
 H3=p<a; % CC sig> 0 (1) or not (0)
 
+% Contigency statistics
 if ~isempty(Thr)
   Nh=Nh./N; % Hit rate
   Nm=Nm./N; % Missing rate
   Nf=Nf./N; % False alarm rate
   Nn=Nn./N; % Correct negative rate
 
+% Resutls
   RS=struct('STs',cat(3,N,m_tg,m_rf,v_tg,v_rf),'EMs',cat(3,RMS,CRMS,CC,NSE,KGE),...
       'SGs',cat(3,H1,H2,H3),'CSs',cat(3,Nh,Nm,Nf,Nn));
   TS=struct('STs',STs,'EMs',EMs,'SGs',SGs,'CSs',CSs);
-  
 else
   RS=struct('STs',cat(3,N,m_tg,m_rf,v_tg,v_rf),'EMs',cat(3,RMS,CRMS,CC,NSE,KGE),...
       'SGs',cat(3,H1,H2,H3));
@@ -292,7 +299,7 @@ if M>4
   [sts,ems,sgs,css]=errM([Stg(k) Srf(k)],a,Thr);
   STs=[STs;sts]; % Statistics
   EMs=[EMs;ems]; % Error metrics
-  SGs=[SGs;sgs]; % Error metrics
+  SGs=[SGs;sgs]; % Significant tests
   if ~isempty(Thr)
     CSs=[CSs;css]; % Contigency statistics
   end
