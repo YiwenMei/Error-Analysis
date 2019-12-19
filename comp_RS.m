@@ -190,7 +190,7 @@ H1=p<a; % M(R)E sig<> 0 (1) or not (0)
 ts=(N-1).*CRMS.^2./v_rf; % CRMS.^2./v_rf/uthr
 p=chi2cdf(ts,N-1); % left-tailed
 H2=p<a; % (N)CRMS sig< SD_rf (1) or not (0);
-ts=(.5*log((1+CC)./(1-CC)))./sqrt(N-3); % .5*log((1+CC)./(1-CC))-uthr
+ts=.5*log((1+CC)./(1-CC)).*sqrt(N-3); % .5*log((1+CC)./(1-CC))-uthr
 p=1-normcdf(ts,0,1); % right-tailed
 H3=p<a; % CC sig> 0 (1) or not (0)
 
