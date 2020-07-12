@@ -46,7 +46,7 @@ function [sts,ems,sgs,css]=errM(TS,a,Thr)
 %% Statistics
 N=size(TS,1); % Sample size
 mn=mean(TS,1); % Mean of target and reference
-vr=var(TS,1,1); % Variance of target and reference
+vr=var(TS,0,1); % Variance of target and reference
 sts=[N mn vr];
 
 %% Error metrics
@@ -56,15 +56,15 @@ sgs=nan(1,3*(size(TS,2)-1));
 for i=1:size(TS,2)-1
   Ts=TS(:,[end i]);
   RMS=sqrt(mean(diff(Ts,[],2).^2)); % Root mean square error
-  CRMS=std(diff(Ts,[],2),1); % Centered root mean square error
+  CRMS=std(diff(Ts,[],2)); % Centered root mean square error
   CC=corr(Ts); % Correlation coefficient
   NSE=1-mean(diff(Ts,[],2).^2)/vr(end); % Nash Sutcliff efficiency
- % Kling-Gupta efficiency
+% Kling-Gupta efficiency
   KGE=1-sqrt((CC-1).^2+(mn(i)/mn(end)-1)^2+(sqrt(vr(i)/vr(end))-1)^2);
   ems(i:(size(TS,2)-1):end)=[RMS CRMS CC(2,1) NSE KGE(2,1)];
 
 % Contigency statistics
-  if ~isempty(Thr)
+  if ~isnan(Thr)
     [th,j]=min(Ts,[],2);
     [th1,~]=max(Ts,[],2);
 
