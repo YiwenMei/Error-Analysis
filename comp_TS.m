@@ -1,6 +1,6 @@
 % Yiwen Mei (ymei2@gmu.edu)
 % CEIE, George Mason University
-% Last update: 6/7/2020
+% Last update: 7/18/2020
 
 %% Functionality
 % This code performs error analysis for one or multiple target time series with
@@ -10,15 +10,23 @@
 %  statistics (optional, percentage of H, M, F, and N).
 
 %% Input
-% ofl: full name list of .mat files store the time series class (TSCls.m) for
-%       different locations (ofl can be N-by-1 or N-by-M cell array for 1 or
-%       M target products and N stations);
+% ofl : full name list of .mat files store the time series class (TSCls.m) for
+%        different locations (ofl can be N-by-1 or N-by-M cell array for 1 or
+%        M target products and N stations);
+% nflg: a flag iindicating whether to calculate network-based statistics and
+%        error metrics or not;
 
-%  a  : significant level for the statistical significant test (defaul is 0.05);
-% Thr : thresholds used to calculate the contigency statistics for the time series
-%        of different locations (default is NaN);
+% P_N : minimum percentage of sample size for the statistics and error metrics
+%        calculations;
+% Tmk : a 2-element cell to specify the time range of interest (the first element
+%        can be 'A', 'Y', or 'M' stands for no mask, mask based on year, or mask
+%        based on month; the second element can be NaN for 'A' and vector stores
+%        the year(s) or month(s) for 'Y' and 'M'; eg., {'M',[1:4 11 12]});
 % Sval: a singular value if a time step that both the target and reference values
 %        equal to it is excluded from the analysis (default is NaN);
+% Thr : thresholds used to calculate the contigency statistics for the time series
+%        of different locations (default is NaN);
+%  a  : significant level for the statistical significant test (defaul is 0.05);
 % pflg: parallel flag (false/true - squential/parallel, default is false).
 
 %% Output
@@ -45,23 +53,28 @@
 
 % Require TSCls.m and errM.m.
 
-function [STs,EMs,SGs,Stg,CSs]=comp_TS(ofl,varargin)
+function [STs,EMs,SGs,Stg,CSs]=comp_TS(ofl,nflg,varargin)
 %% Check the inputs
-narginchk(1,5);
+narginchk(2,7);
 ips=inputParser;
 ips.FunctionName=mfilename;
 
 addRequired(ips,'ofl',@(x) validateattributes(x,{'cell'},{'nonempty'},mfilename,'ofl'));
+addRequired(ips,'nflg',@(x) validateattributes(x,{'logical'},{'nonempty'},mfilename,'nflg'));
 
-addOptional(ips,'a',.05,@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'a'));
-addOptional(ips,'Thr',NaN,@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'Thr'));
+addOptional(ips,'P_N',0,@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'P_N'));
+addOptional(ips,'Tmk',{'A',NaN},@(x) validateattributes(x,{'cell'},{'numel',2},mfilename,'Tmk'));
 addOptional(ips,'Sval',NaN,@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'Sval'));
+addOptional(ips,'Thr',NaN,@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'Thr'));
+addOptional(ips,'a',.05,@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'a'));
 addOptional(ips,'pflg',false,@(x) validateattributes(x,{'logical'},{'nonempty'},mfilename,'pflg'));
 
-parse(ips,ofl,varargin{:});
-a=ips.Results.a;
-Thr=ips.Results.Thr;
+parse(ips,ofl,nflg,varargin{:});
+P_N=ips.Results.P_N;
+Tmk=ips.Results.Tmk;
 Sval=ips.Results.Sval;
+Thr=ips.Results.Thr;
+a=ips.Results.a;
 pflg=ips.Results.pflg;
 clear ips varargin
 
@@ -78,7 +91,7 @@ CSs=[];
 switch pflg
   case true
     parfor n=1:size(ofl,1)
-      [sts,ems,css,sgs,stg,rn,gid]=comp_TS_sub(ofl(n,:),a,Thr,Sval); % Each station
+      [sts,ems,css,sgs,stg,rn,gid]=comp_TS_sub(ofl(n,:),a,Thr,Tmk,P_N,Sval); % Each station
 
       STs=[STs;sts];
       EMs=[EMs;ems];
@@ -94,7 +107,7 @@ switch pflg
 
   case false
     for n=1:size(ofl,1)
-      [sts,ems,css,sgs,stg,rn,gid]=comp_TS_sub(ofl(n,:),a,Thr,Sval); % Each station
+      [sts,ems,css,sgs,stg,rn,gid]=comp_TS_sub(ofl(n,:),a,Thr,Tmk,P_N,Sval); % Each station
 
       STs=[STs;sts];
       EMs=[EMs;ems];
@@ -110,19 +123,29 @@ switch pflg
 end
 
 % All stations
-if size(Stg,1)>1 && size(ofl,1)>1
-  [sts,ems,sgs,css]=errM(Stg,a,Thr);
-  if isa(Gid,'double')
-    RN=[RN;sprintf('Group_%i',Gid)];
-  elseif iscell(Gid) && ischar(Gid{1})
-    RN=[RN;sprintf('G-%s',Gid{1})];
-  else
-    error('Group ID must be supplied as a scalar for integer or as a cell for character');
-  end
-  STs=[STs;sts];
-  EMs=[EMs;ems];
-  SGs=[SGs;sgs];
-  CSs=[CSs;css];
+switch nflg
+  case true
+    if size(Stg,1)>1 && size(ofl,1)>1
+      [sts,ems,sgs,css]=errM(Stg,a,Thr);
+      if isa(Gid,'double')
+        RN=[RN;sprintf('Group_%i',Gid)];
+      elseif iscell(Gid) && ischar(Gid{1})
+        RN=[RN;sprintf('G-%s',Gid{1})];
+      else
+        error('Group ID must be supplied as a scalar for integer or as a cell for character');
+      end
+      STs=[STs;sts];
+      EMs=[EMs;ems];
+      SGs=[SGs;sgs];
+      CSs=[CSs;css];
+    end
+
+  case false
+    if isa(Gid,'double')
+      fprintf('Skipping statistics and error metrics for Group_%i network\n',Gid);
+    elseif iscell(Gid) && ischar(Gid{1})
+      fprintf('Skipping statistics and error metrics for G-%s network\n',Gid{1});
+    end
 end
 
 %% Label the results
@@ -161,7 +184,7 @@ if ~isempty(RN)
 end
 end
 
-function [sts,ems,css,sgs,TS,rn,gid]=comp_TS_sub(ofl,a,Thr,Sval)
+function [sts,ems,css,sgs,TS,rn,gid]=comp_TS_sub(ofl,a,Thr,Tmk,P_N,Sval)
 %% Align the time series
 for i=1:length(ofl)
 % Load the TSCls.m object
@@ -197,11 +220,30 @@ clear stg k Trf Ttg
 %% Perform the stats/error calculation
 gid=OTS.gid;
 if size(TS,1)>4
+  [Y,M,~]=datevec(table2array(TS(:,1)));
+  switch Tmk{1}
+    case 'Y'
+      k0=any(Y==Tmk{2},2);
+    case 'M'
+      k0=any(M==Tmk{2},2);
+    case 'A'
+      k0=true(size(Y));
+  end
   TS=table2array(TS(:,2:end));
-  k=all(~isnan(TS),2) & any(TS~=Sval,2);
-  TS=TS(k,:);
-  [sts,ems,sgs,css]=errM(TS,a,Thr);
-  rn=OTS.Gtg.Sid;
+  k=all(~isnan(TS),2) & any(TS~=Sval,2) & k0;
+  if sum(k)/sum(k0)>P_N
+    TS=TS(k,:);
+    [sts,ems,sgs,css]=errM(TS,a,Thr);
+    rn=OTS.Gtg.Sid;
+
+  else
+    TS=[];
+    sts=[];
+    ems=[];
+    css=[];
+    sgs=[];
+    rn='';
+  end
 
 else
   TS=[];

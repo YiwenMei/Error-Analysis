@@ -17,20 +17,24 @@
 % OSrf : V2DTCls.m object for the reference image stack;
 % wkpth: working directory of the code;
 
-%  L  : a 1-by-2 vector of measurement depth/height for OStg and OSrf if they
-%        are V3DTCls (default is [NaN NaN] for V2DCls);
-% pflg: parallel flag (false/true - squential/parallel, default is false);
 % OSmk: V2DCls.m object for the binary (1 - basin, 0 - not basin) basin mask
 %        (default is NaN);
 % Tmk : a 2-element cell to specify the time range of interest (the first element
 %        can be 'A', 'Y', or 'M' stands for no mask, mask based on year, or mask
 %        based on month; the second element can be NaN for 'A' and vector stores
 %        the year(s) or month(s) for 'Y' and 'M'; eg., {'M',[1:4 11 12]});
+%  L  : a 1-by-2 vector of measurement depth/height for OStg and OSrf if they
+%        are V3DTCls (default is [NaN NaN] for V2DCls);
+% pflg: parallel flag (false/true - squential/parallel, default is false);
+% P_N : minimum percentage of sample size for the statistics and error metrics
+%        calculations;
 % Sval: a singular value if a time step that both the target and reference values
 %        equal to it is excluded from the analysis (default is NaN);
 % Thr : threshold used to calculate the contigency statistics for the time series
 %        of different locations (default is NaN);
-%  cf : multiplicative conversion factor to reference unit (default is 1);
+%  cf : a 2-by-2 matrix to specify the multiplicative (column 1) and additive
+%        (column 2) factors for target (row 1) and reference (row 2) data to
+%        a user-specified unit (default is [1 0;1 0]);
 %  a  : significant level for the statistical significant test (defaul is 0.05);
 
 %% Output
@@ -74,20 +78,22 @@ addRequired(ips,'OSrf',@(x) validateattributes(x,{'V2DTCls','V3DTCls','Wind2DTCl
     mfilename,'OSrf'));
 addRequired(ips,'wkpth',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'wkpth'));
 
-addOptional(ips,'L',[NaN NaN],@(x) validateattributes(x,{'double'},{'vector'},mfilename,'L'));
-addOptional(ips,'pflg',false,@(x) validateattributes(x,{'logical'},{'nonempty'},mfilename,'pflg'));
 addOptional(ips,'OSmk',NaN,@(x) validateattributes(x,{'V2DCls'},{'nonempty'},mfilename,'OSmk'));
 addOptional(ips,'Tmk',{'A',NaN},@(x) validateattributes(x,{'cell'},{'numel',2},mfilename,'Tmk'));
+addOptional(ips,'L',[NaN NaN],@(x) validateattributes(x,{'double'},{'vector'},mfilename,'L'));
+addOptional(ips,'pflg',false,@(x) validateattributes(x,{'logical'},{'nonempty'},mfilename,'pflg'));
+addOptional(ips,'P_N',0,@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'P_N'));
 addOptional(ips,'Sval',NaN,@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'Sval'));
 addOptional(ips,'Thr',NaN,@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'Thr'));
-addOptional(ips,'cf',1,@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'cf'));
+addOptional(ips,'cf',[1 0;1 0],@(x) validateattributes(x,{'double'},{'size',[2 2]},mfilename,'cf'));
 addOptional(ips,'a',.05,@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'a'));
 
 parse(ips,OStg,OSrf,wkpth,varargin{:});
-L=ips.Results.L;
-pflg=ips.Results.pflg;
 OSmk=ips.Results.OSmk;
 Tmk=ips.Results.Tmk;
+L=ips.Results.L;
+pflg=ips.Results.pflg;
+P_N=ips.Results.P_N;
 Sval=ips.Results.Sval;
 Thr=ips.Results.Thr;
 cf=ips.Results.cf;
@@ -141,9 +147,8 @@ end
 fprintf('Generate the ID files\n');
 Srf=Taggr(OSrf,Tcn,TRcn,1,L(2));
 Stg=Taggr(OStg,Tcn,TRcn,1,L(1));
-
-Srf=Saggr(OSrf,Srf,xcn,ycn,SRcn,fullfile(wkpth,'id_rf.mat'));
-Stg=cf*Saggr(OStg,Stg,xcn,ycn,SRcn,fullfile(wkpth,'id_tg.mat'));
+Srf=cf(2,1)*Saggr(OSrf,Srf,xcn,ycn,SRcn,fullfile(wkpth,'id_rf.mat'))+cf(2,2);
+Stg=cf(1,1)*Saggr(OStg,Stg,xcn,ycn,SRcn,fullfile(wkpth,'id_tg.mat'))+cf(1,2);
 
 if isa(OSmk,'V2DCls')
   [~,~,sz]=OSmk.GridCls;
@@ -182,8 +187,8 @@ switch pflg
 % Map to the canonical time line and grids
         Srf=Taggr(OSrf,Tcn,TRcn,t,L(2));
         Stg=Taggr(OStg,Tcn,TRcn,t,L(1));
-        Srf=Saggr(OSrf,Srf,xcn,ycn,SRcn,fullfile(wkpth,'id_rf.mat'));
-        Stg=cf*Saggr(OStg,Stg,xcn,ycn,SRcn,fullfile(wkpth,'id_tg.mat'));
+        Srf=cf(2,1)*Saggr(OSrf,Srf,xcn,ycn,SRcn,fullfile(wkpth,'id_rf.mat'))+cf(2,2);
+        Stg=cf(1,1)*Saggr(OStg,Stg,xcn,ycn,SRcn,fullfile(wkpth,'id_tg.mat'))+cf(1,2);
 
 % Temporal statistics and error metrics - preparation
         k=~isnan(Srf) & ~isnan(Stg) & (Srf~=Sval | Stg~=Sval) & mk; % Common grids & ~singular value
@@ -206,7 +211,7 @@ switch pflg
         end
 
 % Spatial statistics and error metrics
-        if length(find(k))/length(find(mk))>.5 % Remaining grids over grids in basin
+        if length(find(k))/length(find(mk))>P_N % Remaining grids over grids in basin
           [sts,ems,sgs,css]=errM([Stg(k) Srf(k)],a,Thr);
           STs=[STs;sts]; % Statistics
           EMs=[EMs;ems]; % Error metrics
@@ -230,12 +235,12 @@ switch pflg
         Srf=Taggr(OSrf,Tcn,TRcn,t,L(2));
         Stg=Taggr(OStg,Tcn,TRcn,t,L(1));
 
-        Srf=Saggr(OSrf,Srf,xcn,ycn,SRcn,fullfile(wkpth,'id_rf.mat'));
-        Stg=cf*Saggr(OStg,Stg,xcn,ycn,SRcn,fullfile(wkpth,'id_tg.mat'));
+        Srf=cf(2,1)*Saggr(OSrf,Srf,xcn,ycn,SRcn,fullfile(wkpth,'id_rf.mat'))+cf(2,2);
+        Stg=cf(1,1)*Saggr(OStg,Stg,xcn,ycn,SRcn,fullfile(wkpth,'id_tg.mat'))+cf(1,2);
 
         Cin=cat(3,N,Z_tg,Z_rf,Z2_tg,Z2_rf,pZ,dZ,dZ2,Nh,Nm,Nf,Nn);
         [N,Z_tg,Z_rf,Z2_tg,Z2_rf,pZ,dZ,dZ2,Nh,Nm,Nf,Nn,STs,EMs,SGs,CSs,tln]=...
-            comp_RS_sub(Srf,Stg,mk,Sval,Thr,a,Cin,STs,EMs,SGs,CSs);
+            comp_RS_sub(Srf,Stg,mk,P_N,Sval,Thr,a,Cin,STs,EMs,SGs,CSs);
 
         Tln(t)=tln;
       else
@@ -248,9 +253,9 @@ delete(fullfile(wkpth,'id_*.mat'));
 fprintf('Finishing the loop\n');
 
 %% Temporal statistics and error metrics - calculation
-k=N./sum(Tln~=1)>.5;
+k=N./sum(Tln~=1)>P_N;
 mk=double(~mk); % Label for not within the time mask
-mk(~k)=2; % Label for not enough data point after applying the masks
+mk(~k & mk==0)=2; % Label for not enough data point after applying the masks
 mk=cat(3,xcn,ycn,mk);
 
 N(~k)=NaN;
@@ -377,7 +382,7 @@ S=reshape(S,s);
 end
 
 function [N,Z_tg,Z_rf,Z2_tg,Z2_rf,pZ,dZ,dZ2,Nh,Nm,Nf,Nn,STs,EMs,SGs,CSs,tln]=...
-    comp_RS_sub(Srf,Stg,mk,Sval,Thr,a,Cin,STs,EMs,SGs,CSs)
+    comp_RS_sub(Srf,Stg,mk,P_N,Sval,Thr,a,Cin,STs,EMs,SGs,CSs)
 % Temporal statistics and error metrics - preparation
 k=~isnan(Srf) & ~isnan(Stg) & (Srf~=Sval | Stg~=Sval) & mk; % Common grids & ~singular value & in basin
 Srf(~k)=0;
@@ -404,7 +409,7 @@ if ~isnan(Thr)
 end
 
 % Spatial statistics and error metrics
-if length(find(k))/length(find(mk))>.5 % Remaining grids over grids in basin
+if length(find(k))/length(find(mk))>P_N % Remaining grids over grids in basin
   [sts,ems,sgs,css]=errM([Stg(k) Srf(k)],a,Thr);
   STs=[STs;sts]; % Statistics
   EMs=[EMs;ems]; % Error metrics
