@@ -126,14 +126,16 @@ end
 switch nflg
   case true
     if size(Stg,1)>1 && size(ofl,1)>1
-      [sts,ems,sgs,css]=errM(Stg,a,Thr);
       if isa(Gid,'double')
-        RN=[RN;sprintf('Group_%i',Gid)];
+        fprintf('Calculate statistics and error metrics for Group-%i network\n',Gid);
+        RN=[RN;sprintf('Group-%i',Gid)];
       elseif iscell(Gid) && ischar(Gid{1})
+        fprintf('Calculate statistics and error metrics for G-%s network\n',Gid{1});
         RN=[RN;sprintf('G-%s',Gid{1})];
       else
         error('Group ID must be supplied as a scalar for integer or as a cell for character');
       end
+      [sts,ems,sgs,css]=errM(Stg,a,Thr);
       STs=[STs;sts];
       EMs=[EMs;ems];
       SGs=[SGs;sgs];
@@ -142,9 +144,9 @@ switch nflg
 
   case false
     if isa(Gid,'double')
-      fprintf('Skipping statistics and error metrics for Group_%i network\n',Gid);
+      fprintf('Skip statistics and error metrics for Group-%i network\n',Gid);
     elseif iscell(Gid) && ischar(Gid{1})
-      fprintf('Skipping statistics and error metrics for G-%s network\n',Gid{1});
+      fprintf('Skip statistics and error metrics for G-%s network\n',Gid{1});
     end
 end
 
@@ -199,11 +201,28 @@ for i=1:length(ofl)
 
 % Aggregate the target time series
   stg=[];
-  for t=1:length(Trf)
-    k=Ttg>=Trf(t)-OTS.TR2/24/2 & Ttg<Trf(t)+OTS.TR2/24/2;
-    if any(k)
-      stg=[stg;[Trf(t) mean(OTS.TS1(k))]];
+  if isa(OTS.TR2,'double') % Regular time resolution (e.g. daily, hourly)
+    for t=1:length(Trf)
+      k=Ttg>=Trf(t)-OTS.TR2/24/2 & Ttg<Trf(t)+OTS.TR2/24/2;
+      if any(k)
+        stg=[stg;[Trf(t) mean(OTS.TS1(k))]];
+      end
     end
+
+  elseif ischar(OTS.TR2) % Monthly, Yearly
+    for t=1:length(Trf)
+      [Y,M,~]=datevec(Trf(t));
+      switch OTS.TR2
+        case 'monthly'
+          k=Ttg>=Trf(t) & Ttg<Trf(t)+eomday(Y,M);
+        case 'yearly'
+          k=Ttg>=Trf(t) & Ttg<Trf(t)+yeardays(Y);
+      end
+
+      if any(k)
+        stg=[stg;[Trf(t) mean(OTS.TS1(k))]];
+      end
+    end    
   end
 
 % Join the target with reference
@@ -232,9 +251,10 @@ if size(TS,1)>4
   TS=table2array(TS(:,2:end));
   k=all(~isnan(TS),2) & any(TS~=Sval,2) & k0;
   if sum(k)/sum(k0)>P_N
+    rn=OTS.Gtg.Sid;
+    fprintf('Execute errM.m for station %s\n',rn);
     TS=TS(k,:);
     [sts,ems,sgs,css]=errM(TS,a,Thr);
-    rn=OTS.Gtg.Sid;
 
   else
     TS=[];
